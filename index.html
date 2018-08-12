@@ -176,6 +176,35 @@
         ">
       
 <div class="post-preview">
+  <a href="/2018/08/12/rails-logger-wrap/">
+    <h2 class="post-title">
+      Rails日志组件封装
+    </h2>
+    
+    <h3 class="post-subtitle">
+      基于Ruby logger二次封装
+    </h3>
+    
+    <div class="post-content-preview">
+      在原始的单体应用中，日志通常直接输出到文件，然后由crontab中的定时任务做日志切分。再进一步，可能会有ELK系统收集分析。ELK只能对格式化的日志进行处理，对于无规则的日志只能作为字符串处理。Rails默认日志并不够简洁，对ELK来说处理难度略大。
+
+结构
+
+日志主要处理“谁在什么时间做了什么事情”的问题，下面就按这个思维来分析到底要怎么设计日志格式。
+
+谁
+
+
+  服务组件可能会有很多...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2018-08-12
+  </p>
+</div>
+<hr>
+
+<div class="post-preview">
   <a href="/2018/08/12/caching-with-rails/">
     <h2 class="post-title">
       Rails(4.1)中的缓存管理
@@ -214,20 +243,6 @@ IdentityCache
         sidebar-container
     ">
       <!-- Featured Tags -->
-      
-      <section>
-        <hr class="hidden-sm hidden-xs">
-        <h5><a href="/tags/">FEATURED TAGS</a></h5>
-        <div class="tags">
-          
-            
-          
-            
-          
-            
-          
-        </div>
-      </section>
       
 
       <!-- Short About -->
@@ -286,7 +301,7 @@ IdentityCache
           <iframe
             style="margin-left: 2px; margin-bottom:-5px;"
             frameborder="0" scrolling="0" width="100px" height="20px"
-            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish.github.io&type=star&count=true" >
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
           </iframe>
         </p>
       </div>

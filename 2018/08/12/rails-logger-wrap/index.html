@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Rails日志组件封装 - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2018/08/12/rails-logger-wrap/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/rails_logger_wrap.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/rails_logger_wrap.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#Logger" title="Logger">Logger</a>
+            
+          </div>
+          <h1>Rails日志组件封装</h1>
+          
+          
+          <h2 class="subheading">基于Ruby logger二次封装</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-12
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>在原始的单体应用中，日志通常直接输出到文件，然后由crontab中的定时任务做日志切分。再进一步，可能会有<a href="https://www.elastic.co/elk-stack" title="ELK">ELK</a>系统收集分析。ELK只能对格式化的日志进行处理，对于无规则的日志只能作为字符串处理。Rails默认日志并不够简洁，对ELK来说处理难度略大。</p>
+
+<h1 id="结构">结构</h1>
+
+<p>日志主要处理“谁在什么时间做了什么事情”的问题，下面就按这个思维来分析到底要怎么设计日志格式。</p>
+
+<h2 id="谁">谁</h2>
+
+<ul>
+  <li>服务组件可能会有很多，而不同组件格式可能也不一样，那首先得记录日志工具的名字和版本；</li>
+  <li>相同的日志组件可能会根据业务的不同而分为不同组别；</li>
+  <li>服务一般多进程运行的，那进程号肯定是需要的；</li>
+  <li>公司达到一定规模以后，单机部署已经不能满足处理能力需求，这样就需要知道是哪台机器输出的日志；</li>
+  <li>如果是分布式环境还需要知道当前在处理的是哪个请求，所以需要记录traceID；</li>
+</ul>
+
+<h2 id="时间">时间</h2>
+
+<p>时间主要是格式和精度问题，这里我们选RFC3339格式(<code class="highlighter-rouge">%Y%m%dT%H:%M:%S.%L%z</code>)，即日前与时间之间以T相连，精度到毫秒，带时区。带时区是防止运维失误导致某些机器系统时区与本地时区不符。</p>
+
+<h2 id="事情">事情</h2>
+
+<p>即日志的主体，可能是请求信息、异常回溯信息或其他信息</p>
+
+<h1 id="show-me-the-code">Show me the code!</h1>
+
+<h2 id="api">API</h2>
+
+<p>操作接口与默认保持一致，重新定义了参数的含义，<code class="highlighter-rouge">progname -&gt; title</code>用于定义日志分组，方便对某一类日志进行统一分析。真实的日志内容通过block传入，从而降低非打印级别日志操作消耗。</p>
+
+<ul>
+  <li>def debug(title = nil){ body }</li>
+  <li>def info(title = nil){ body }</li>
+  <li>def warn(title = nil){ body }</li>
+  <li>def error(title = nil){ body }</li>
+  <li>def fatal(title = nil){ body }</li>
+</ul>
+
+<p>重写初始化方法，在开发环境和Test环境中输出一份默认格式的日志到终端便于调试。核心为<code class="highlighter-rouge">ActiveSupport::Logger.broadcast</code>方法的使用，对此实现有迷惑的可以看看这个函数的实现。但是这样做以后赋值给<code class="highlighter-rouge">Rails.logger</code>时，终端会输出两条重复日志，暂时无解（可以在给全局logger赋值的对象控制不进行broadcast，但是这样代码太丑了）。</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">initialize</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+  <span class="k">super</span>
+  <span class="vi">@formatter</span> <span class="o">=</span> <span class="no">Formatter</span><span class="p">.</span><span class="nf">new</span>
+
+  <span class="c1"># NOTE 开发环境如果输出到文件则需要输出一份到终端，默认忽略设置格式</span>
+  <span class="k">if</span> <span class="p">(</span><span class="no">Rails</span><span class="p">.</span><span class="nf">env</span><span class="p">.</span><span class="nf">development?</span> <span class="o">||</span> <span class="no">Rails</span><span class="p">.</span><span class="nf">env</span><span class="p">.</span><span class="nf">test?</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="vi">@logdev</span><span class="p">.</span><span class="nf">dev</span><span class="p">.</span><span class="nf">is_a?</span><span class="p">(</span><span class="no">File</span><span class="p">)</span>
+    <span class="n">stdout_logger</span> <span class="o">=</span> <span class="o">::</span><span class="no">ActiveSupport</span><span class="o">::</span><span class="no">Logger</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="no">STDOUT</span><span class="p">)</span>
+    <span class="n">stdout_logger</span><span class="p">.</span><span class="nf">formatter</span> <span class="o">=</span> <span class="no">SimpleFormatter</span><span class="p">.</span><span class="nf">new</span>
+    <span class="nb">self</span><span class="p">.</span><span class="nf">extend</span><span class="p">(</span><span class="no">ActiveSupport</span><span class="o">::</span><span class="no">Logger</span><span class="p">.</span><span class="nf">broadcast</span><span class="p">(</span><span class="n">stdout_logger</span><span class="p">))</span>
+  <span class="k">end</span>
+
+  <span class="vi">@level</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">log_level</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h2 id="formatter">Formatter</h2>
+
+<p>为了实现前面描述的日志格式，需要对Formatter进行定制。顺便在定制时对一些常见类型进行默认处理，比如倾印<code class="highlighter-rouge">StandardError</code>时希望只输出业务代码的backtrace，倾印<code class="highlighter-rouge">request</code>时只要请求路径和参数信息等。</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Formatter</span> <span class="o">&lt;</span> <span class="o">::</span><span class="no">Logger</span><span class="o">::</span><span class="no">Formatter</span>
+  <span class="k">def</span> <span class="nf">initialize</span>
+    <span class="vi">@datetime_format</span> <span class="o">=</span> <span class="s1">'%Y%m%dT%H:%M:%S.%L%z'</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">progname</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+    <span class="n">title</span><span class="p">,</span> <span class="n">body</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="s1">''</span>
+    <span class="k">case</span> <span class="n">msg</span>
+    <span class="k">when</span> <span class="o">::</span><span class="no">StandardError</span>
+      <span class="n">title</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="nf">message</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="no">BacktraceCleaner</span><span class="p">.</span><span class="nf">clean</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="nf">backtrace</span><span class="p">)</span> <span class="k">if</span> <span class="n">msg</span><span class="p">.</span><span class="nf">backtrace</span>
+    <span class="k">when</span> <span class="o">::</span><span class="no">ActionDispatch</span><span class="o">::</span><span class="no">Request</span>
+      <span class="n">title</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="nf">path</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="nf">params</span>
+    <span class="k">when</span> <span class="o">::</span><span class="no">Entity</span><span class="o">::</span><span class="no">Message</span>
+      <span class="n">title</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="nf">title</span>
+      <span class="n">body</span> <span class="o">=</span> <span class="n">msg</span><span class="p">.</span><span class="nf">body</span>
+    <span class="k">else</span>
+      <span class="n">title</span> <span class="o">=</span> <span class="n">msg</span>
+    <span class="k">end</span>
+    <span class="s2">"|</span><span class="si">#{</span><span class="n">severity</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">format_datetime</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">hostname</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">logger_name</span><span class="si">}</span><span class="s2">|v</span><span class="si">#{</span><span class="no">VERSION</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">progname</span><span class="si">}</span><span class="s2">|</span><span class="si">#{</span><span class="n">traceid</span><span class="si">}</span><span class="s2">|###+</span><span class="si">#{</span><span class="n">title</span><span class="p">.</span><span class="nf">inspect</span><span class="si">}</span><span class="s2">-###|###+</span><span class="si">#{</span><span class="n">body</span><span class="p">.</span><span class="nf">inspect</span><span class="si">}</span><span class="s2">-###|</span><span class="se">\n</span><span class="s2">"</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">hostname</span>
+    <span class="vi">@hostname</span> <span class="o">||=</span> <span class="no">Socket</span><span class="p">.</span><span class="nf">gethostname</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">logger_name</span>
+    <span class="vi">@logger_name</span> <span class="o">||=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">name</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">traceid</span>
+    <span class="o">::</span><span class="no">RequestStore</span><span class="p">.</span><span class="nf">store</span><span class="p">[</span><span class="ss">:traceid</span><span class="p">]</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>此时为了让输出终端的日志可以更友好一些，希望能对日志进行上色。这里只实现三种颜色</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 为输出添加颜色</span>
+<span class="k">class</span> <span class="nc">SimpleFormatter</span> <span class="o">&lt;</span> <span class="o">::</span><span class="no">Logger</span><span class="o">::</span><span class="no">Formatter</span>
+  <span class="c1"># This method is invoked when a log event occurs</span>
+  <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">progname</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+    <span class="n">wrap</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">progname</span><span class="p">)</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">wrap</span><span class="p">(</span><span class="n">severity</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">progname</span><span class="p">)</span>
+    <span class="n">color</span> <span class="o">=</span> <span class="k">case</span> <span class="n">severity</span><span class="p">.</span><span class="nf">to_s</span><span class="p">.</span><span class="nf">downcase</span>
+    <span class="k">when</span> <span class="s1">'warn'</span><span class="p">,</span> <span class="s1">'unknown'</span>
+      <span class="mi">33</span> <span class="c1"># YELLOW</span>
+    <span class="k">when</span> <span class="s1">'error'</span><span class="p">,</span> <span class="s1">'fatal'</span>
+      <span class="mi">31</span> <span class="c1"># RED</span>
+    <span class="k">else</span>
+      <span class="mi">32</span> <span class="c1"># GREEN</span>
+    <span class="k">end</span>
+
+    <span class="n">message</span> <span class="o">=</span> <span class="k">case</span> <span class="n">msg</span>
+    <span class="k">when</span> <span class="o">::</span><span class="no">String</span>
+      <span class="n">msg</span>
+    <span class="k">when</span> <span class="o">::</span><span class="no">StandardError</span>
+      <span class="s2">"</span><span class="si">#{</span><span class="n">msg</span><span class="p">.</span><span class="nf">message</span><span class="si">}</span><span class="s2">: </span><span class="si">#{</span><span class="p">(</span><span class="n">msg</span><span class="p">.</span><span class="nf">backtrace</span> <span class="o">||</span> <span class="p">[]).</span><span class="nf">join</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+    <span class="k">else</span>
+      <span class="n">msg</span><span class="p">.</span><span class="nf">inspect</span>
+    <span class="k">end</span>
+
+    <span class="s2">"</span><span class="se">\e\[</span><span class="si">#{</span><span class="n">color</span><span class="si">}</span><span class="s2">;1m</span><span class="si">#{</span><span class="n">progname</span><span class="si">}</span><span class="s2"> </span><span class="si">#{</span><span class="n">message</span><span class="si">}</span><span class="se">\e\[</span><span class="s2">0m</span><span class="se">\n</span><span class="s2">"</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h1 id="总结">总结</h1>
+
+<p>到此，我们的日志模块就设计好了。title和body部分除了使用竖线分割外，为了正确切割出实际内容增加了额外标记<code class="highlighter-rouge">##+</code>和<code class="highlighter-rouge">-##</code>，这样logstash在切分时就不会出错了。
+如果需要对日志格式进行调整，只需要升级<code class="highlighter-rouge">VERSION</code>编号即可，理论上通过对logstash的规则进行定制，多版本同时存在应该是没什么问题的。</p>
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/12/caching-with-rails/" data-toggle="tooltip" data-placement="top" title="Rails(4.1)中的缓存管理">
+            Previous<br>
+            <span>Rails(4.1)中的缓存管理</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2018
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
