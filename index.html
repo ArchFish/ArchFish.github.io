@@ -175,6 +175,30 @@
             postlist-container
         ">
       
+<div class="post-preview">
+  <a href="/2018/08/12/caching-with-rails/">
+    <h2 class="post-title">
+      Rails(4.1)中的缓存管理
+    </h2>
+    
+    <h3 class="post-subtitle">
+      复杂业务场景下的缓存淘汰方案
+    </h3>
+    
+    <div class="post-content-preview">
+      在rails中我们常用的有Rails#cache和IdentityCache这两种cache方式。在长期实践中发现了不少问题，于是我们研发了一个新的缓存组件CacheWorker。下面对这些组件进行大致介绍：
+
+IdentityCache
+
+这是一种ActiveRecord Caching组件，提供了若干读方法，通过after_commit回调对缓存进行淘汰，我们业务系统中使用的是Redis...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2018-08-12
+  </p>
+</div>
+<hr>
+
 
 <!-- Pager -->
 
@@ -195,6 +219,12 @@
         <hr class="hidden-sm hidden-xs">
         <h5><a href="/tags/">FEATURED TAGS</a></h5>
         <div class="tags">
+          
+            
+          
+            
+          
+            
           
         </div>
       </section>

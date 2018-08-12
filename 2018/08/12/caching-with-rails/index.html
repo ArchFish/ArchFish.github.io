@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Rails(4.1)中的缓存管理 - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2018/08/12/caching-with-rails/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/caching_with_rails.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/caching_with_rails.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#Redis" title="Redis">Redis</a>
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+          </div>
+          <h1>Rails(4.1)中的缓存管理</h1>
+          
+          
+          <h2 class="subheading">复杂业务场景下的缓存淘汰方案</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-12
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>在rails中我们常用的有<a href="https://guides.rubyonrails.org/caching_with_rails.html#low-level-caching" title="Rails#cache">Rails#cache</a>和<a href="https://github.com/Shopify/identity_cache" title="IdentityCache">IdentityCache</a>这两种cache方式。在长期实践中发现了不少问题，于是我们研发了一个新的缓存组件<a href="/2018/08/12/caching-with-rails" title="Cache Worker">CacheWorker</a>。下面对这些组件进行大致介绍：</p>
+
+<h2 id="identitycache">IdentityCache</h2>
+
+<p>这是一种<code class="highlighter-rouge">ActiveRecord Caching</code>组件，提供了若干读方法，通过<code class="highlighter-rouge">after_commit</code>回调对缓存进行淘汰，我们业务系统中使用的是Redis作为后端默认情况下该缓存无过期时间。
+在实际使用中，比直接查询数据库大概快30%左右。如果数据没有通过统一rails应用进行更新，则会导致脏数据，所以这种方式在后期微服务拆分中会带来很大的问题。表的一行记录可能会很大，当使用的热数据很多时，对redis是个不小的压力，所以在redis中存放这种缓存是否真的划算我表示怀疑。</p>
+
+<h2 id="rails-cache">Rails Cache</h2>
+
+<p>这种缓存方式支持更灵活的缓存key定义，前期在系统中大量使用。根据查询结果中的最新更新时间作为cache key的条件之一实现在这部分数据发生变化时自动使用新的cache key，从而实现缓存的淘汰。就算不是通过同一Rails应用修改数据也能做到最大程度降低脏缓存出现的几率。</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">records</span>     <span class="o">=</span> <span class="no">Table</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="ss">aa: :bb</span><span class="p">)</span>
+<span class="n">last_update</span> <span class="o">=</span> <span class="n">records</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="ss">:updated_at</span><span class="p">)</span>
+<span class="n">count</span>       <span class="o">=</span> <span class="n">records</span><span class="p">.</span><span class="nf">size</span>
+<span class="n">cache_key</span>   <span class="o">=</span> <span class="s2">"</span><span class="si">#{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">:using_for:</span><span class="si">#{</span><span class="n">count</span><span class="si">}</span><span class="s2">:</span><span class="si">#{</span><span class="n">last_update</span><span class="p">.</span><span class="nf">to_i</span><span class="si">}</span><span class="s2">"</span>
+<span class="n">cache_opts</span>  <span class="o">=</span> <span class="p">{</span>
+  <span class="ss">expires_in: </span><span class="mi">15</span><span class="p">.</span><span class="nf">minutes</span>
+<span class="p">}</span>
+<span class="n">result</span> <span class="o">=</span>  <span class="no">Rails</span><span class="p">.</span><span class="nf">cache</span><span class="p">.</span><span class="nf">fetch</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">cache_opts</span><span class="p">)</span> <span class="k">do</span>
+  <span class="n">logic</span>
+  <span class="o">...</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>这种方式有几个问题：</p>
+
+<ul>
+  <li>
+    <p>当records的查询条件发生变化时，可能会导致在小于<code class="highlighter-rouge">max(update_at)</code>的范围内增加或减少记录从而导致缓存变脏。</p>
+
+    <p>要解决这种问题，只能在算法发生变化时主动删除相关缓存，但是靠人为去记忆哪些数据需要删除就很困难了，大项目中有谁敢打包票对每一处细节都非常熟悉呢？这时只能尽量降低缓存的生存时间，从而降低脏缓存存在的时间，但是某些情况下脏缓存会带来灾难性的后果。</p>
+  </li>
+  <li>
+    <p>为了确定数据是否有发生变化额外增加两次SQL查询。</p>
+
+    <p>随着数据库中的数据越来越多，这两个SQL操作的成本就越不能忽略。</p>
+  </li>
+  <li>
+    <p>缓存的量达到一点程度时，主动清空缓存变成了负担。</p>
+
+    <p>在使用中我们发现，当key总数在百万级别时，执行<code class="highlighter-rouge">Rails.cache.clear</code>几乎不可能成功，表现为执行了很长时间以后就会报<code class="highlighter-rouge">systemstackerror</code>错误。这是因为一次性从redis里拉回太多数据导致的，对数据分批后问题解决。</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 分批清理Rails.cache缓存</span>
+<span class="c1"># NOTE Rails.cache 键值达到一定程度时会出现 `systemstackerror`</span>
+<span class="c1">#</span>
+<span class="c1"># options</span>
+<span class="c1">#   match String  匹配字符串</span>
+<span class="c1">#   count Integer 每批清理数目</span>
+<span class="k">def</span> <span class="nf">wipe_all_cache!</span><span class="p">(</span><span class="ss">match: </span><span class="s1">'*'</span><span class="p">,</span> <span class="ss">count: </span><span class="mi">10240</span><span class="p">)</span>
+  <span class="n">rails_options</span> <span class="o">=</span> <span class="no">Rails</span><span class="p">.</span><span class="nf">cache</span><span class="p">.</span><span class="nf">options</span>
+  <span class="n">redis</span> <span class="o">=</span> <span class="no">Redis</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="n">rails_options</span><span class="p">)</span>
+  <span class="n">match_str</span> <span class="o">=</span> <span class="s2">"</span><span class="si">#{</span><span class="n">rails_options</span><span class="p">[</span><span class="ss">:namespace</span><span class="p">]</span><span class="si">}</span><span class="s2">:</span><span class="si">#{</span><span class="n">match</span><span class="si">}</span><span class="s2">"</span>
+
+  <span class="n">cursor</span> <span class="o">=</span> <span class="s1">'0'</span>
+  <span class="n">cleared_count</span> <span class="o">=</span> <span class="mi">0</span>
+  <span class="kp">loop</span> <span class="k">do</span>
+    <span class="n">cursor</span><span class="p">,</span> <span class="n">keys</span> <span class="o">=</span> <span class="n">redis</span><span class="p">.</span><span class="nf">scan</span><span class="p">(</span><span class="n">cursor</span><span class="p">,</span> <span class="ss">match: </span><span class="n">match_str</span><span class="p">,</span> <span class="ss">count: </span><span class="n">count</span><span class="p">)</span>
+
+    <span class="p">(</span><span class="n">cursor</span> <span class="o">==</span> <span class="s1">'0'</span> <span class="p">?</span> <span class="k">break</span> <span class="p">:</span> <span class="k">next</span><span class="p">)</span> <span class="k">if</span> <span class="n">keys</span><span class="p">.</span><span class="nf">blank?</span>
+
+    <span class="n">redis</span><span class="p">.</span><span class="nf">del</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">)</span>
+    <span class="n">cleared_count</span> <span class="o">+=</span> <span class="n">keys</span><span class="p">.</span><span class="nf">count</span>
+  <span class="k">end</span>
+
+  <span class="n">cleared_count</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h2 id="cache-worker">Cache Worker</h2>
+
+<p>该组件由缓存注册和事件处理两个部分组成。在初期版本中，我尝试在淘汰逻辑中删除redis中对应的key，但是<a href="https://github.com/antirez/redis/issues/167" title="Implement Expire on hash">Redis不支持设置Set中的key的过期时间</a>，这就会导致长时间运行下某些Set中的key总数非常大，进行删除时会导致redis处理超时。后来通过设置比较短的TTL，通过修改model对应的一串key实现缓存淘汰。同时增加一个redis队列用于顺序处理过期事件。数据结构如下所示：</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">{</span>
+  <span class="ss">model1_name: </span><span class="no">SecureRandom</span><span class="p">.</span><span class="nf">urlsafe_base64</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span>
+  <span class="ss">model2_name: </span><span class="no">SecureRandom</span><span class="p">.</span><span class="nf">urlsafe_base64</span><span class="p">(</span><span class="mi">5</span><span class="p">),</span>
+  <span class="ss">model3_name: </span><span class="no">SecureRandom</span><span class="p">.</span><span class="nf">urlsafe_base64</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="ss">queue: </span><span class="p">[</span><span class="ss">:event1</span><span class="p">,</span> <span class="ss">:event2</span><span class="p">,</span> <span class="ss">:event3</span><span class="p">,</span> <span class="ss">:event4</span><span class="p">]</span>
+</code></pre></div></div>
+
+<h3 id="缓存注册">缓存注册</h3>
+
+<ul>
+  <li>
+    <p>相关Model需注册相关事件回调，在回调中发布相关事件</p>
+
+    <p>在所有<code class="highlighter-rouge">after_commit</code>之后执行<code class="highlighter-rouge">publish_event</code>发布默认数据变更事件，其中还有该次提交所涉及的变化，在<code class="highlighter-rouge">publish_event</code>可以对缓存过期的条件进行自定义规则，从而实现更细致的缓存控制。</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">included</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+  <span class="n">base</span><span class="p">.</span><span class="nf">extend</span> <span class="no">ClassMethods</span>
+  <span class="n">base</span><span class="p">.</span><span class="nf">class_eval</span> <span class="k">do</span>
+    <span class="n">after_commit</span> <span class="ss">:publish_event</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="kp">private</span>
+<span class="k">def</span> <span class="nf">publish_event</span>
+  <span class="n">event_type</span> <span class="o">=</span> <span class="k">case</span>
+  <span class="k">when</span> <span class="n">transaction_include_any_action?</span><span class="p">([</span><span class="ss">:create</span><span class="p">])</span>
+    <span class="s1">'create'</span>
+  <span class="k">when</span> <span class="n">transaction_include_any_action?</span><span class="p">([</span><span class="ss">:update</span><span class="p">])</span>
+    <span class="s1">'update'</span>
+  <span class="k">when</span> <span class="n">transaction_include_any_action?</span><span class="p">([</span><span class="ss">:destroy</span><span class="p">])</span>
+    <span class="s1">'destroy'</span>
+  <span class="k">end</span>
+
+  <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="ss">event_type: </span><span class="n">event_type</span><span class="p">,</span>
+    <span class="ss">changed_attributes: </span><span class="nb">self</span><span class="p">.</span><span class="nf">previous_changes</span><span class="p">.</span><span class="nf">keys</span><span class="p">,</span>
+    <span class="ss">class: </span><span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">name</span><span class="p">,</span>
+    <span class="ss">primary_key: </span><span class="nb">self</span><span class="p">.</span><span class="nf">id</span>
+  <span class="p">}</span>
+
+  <span class="no">ActiveSupport</span><span class="o">::</span><span class="no">Notifications</span><span class="p">.</span><span class="nf">instrument</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">class</span><span class="p">.</span><span class="nf">event_name</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+
+    <p>这里可以更进一步，对于<code class="highlighter-rouge">update_all</code>和<code class="highlighter-rouge">delete_all</code>也增加了一个回调，这样就完成了所有数据变更操作都有发布信息。</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># hack update_all 和 delete_all 同样发出消息</span>
+<span class="n">module</span> <span class="o">::</span><span class="no">ActiveRecord</span>
+  <span class="k">class</span> <span class="nc">Relation</span>
+    <span class="kp">alias_method</span> <span class="ss">:orig_update_all</span><span class="p">,</span> <span class="ss">:update_all</span>
+    <span class="kp">alias_method</span> <span class="ss">:orig_delete_all</span><span class="p">,</span> <span class="ss">:delete_all</span>
+
+    <span class="k">def</span> <span class="nf">update_all</span><span class="p">(</span><span class="n">updates</span><span class="p">)</span>
+      <span class="n">result</span> <span class="o">=</span> <span class="n">orig_update_all</span><span class="p">(</span><span class="n">updates</span><span class="p">)</span>
+      <span class="k">if</span> <span class="nb">respond_to?</span> <span class="ss">:publish_event</span>
+        <span class="n">publish_event</span><span class="p">(</span><span class="n">__method__</span><span class="p">)</span>
+      <span class="k">end</span>
+      <span class="n">result</span>
+    <span class="k">end</span>
+
+    <span class="k">def</span> <span class="nf">delete_all</span><span class="p">(</span><span class="n">conditions</span> <span class="o">=</span> <span class="kp">nil</span><span class="p">)</span>
+      <span class="n">result</span> <span class="o">=</span> <span class="n">orig_delete_all</span><span class="p">(</span><span class="n">conditions</span><span class="p">)</span>
+      <span class="k">if</span> <span class="nb">respond_to?</span> <span class="ss">:publish_event</span>
+        <span class="n">publish_event</span><span class="p">(</span><span class="n">__method__</span><span class="p">)</span>
+      <span class="k">end</span>
+      <span class="n">result</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+  </li>
+  <li>
+    <p>缓存Key注册</p>
+
+    <p>在Rails#cache的基础上去掉<code class="highlighter-rouge">updated_at</code>和<code class="highlighter-rouge">size</code>后通过将相关model的当前序列拼接到后面。</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># options</span>
+<span class="c1">#   expires_in Integer second</span>
+<span class="c1">#   related_modules Array ActiveRecord class</span>
+<span class="k">def</span> <span class="nf">cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">options</span> <span class="o">=</span> <span class="p">{},</span> <span class="o">&amp;</span><span class="n">block</span><span class="p">)</span>
+  <span class="k">if</span> <span class="n">cache_key</span><span class="p">.</span><span class="nf">blank?</span> <span class="o">||</span> <span class="no">Rails</span><span class="p">.</span><span class="nf">env</span><span class="p">.</span><span class="nf">test?</span>
+    <span class="k">return</span> <span class="k">yield</span> <span class="k">if</span> <span class="nb">block_given?</span>
+  <span class="k">end</span>
+
+  <span class="n">cache_options</span> <span class="o">=</span> <span class="p">(</span><span class="n">options</span> <span class="o">||</span> <span class="p">{}).</span><span class="nf">slice</span><span class="p">(</span><span class="ss">:expires_in</span><span class="p">,</span> <span class="ss">:compress</span><span class="p">,</span> <span class="ss">:race_condition_ttl</span><span class="p">)</span>
+  <span class="c1"># 过期冗余，允许key在过期6秒内继续读取</span>
+  <span class="n">cache_options</span><span class="p">[</span><span class="ss">:race_condition_ttl</span><span class="p">]</span> <span class="o">||=</span> <span class="mi">6</span><span class="p">.</span><span class="nf">seconds</span>
+
+  <span class="n">related_modules</span> <span class="o">=</span> <span class="no">Array</span><span class="p">(</span><span class="n">options</span><span class="p">[</span><span class="ss">:related_modules</span><span class="p">]</span> <span class="o">||</span> <span class="p">[])</span>
+  <span class="c1"># NOTE 默认有效期为3小时，键过期后会一直存在，只能依赖LRU清除，Redis须配置一个合适的Hz值</span>
+  <span class="k">if</span> <span class="n">related_modules</span><span class="p">.</span><span class="nf">blank?</span> <span class="o">||</span> <span class="n">cache_options</span><span class="p">[</span><span class="ss">:expires_in</span><span class="p">].</span><span class="nf">blank?</span>
+    <span class="n">cache_options</span><span class="p">[</span><span class="ss">:expires_in</span><span class="p">]</span> <span class="o">||=</span> <span class="mi">3</span><span class="p">.</span><span class="nf">hours</span>
+  <span class="k">end</span>
+
+  <span class="n">cache_key</span> <span class="o">=</span> <span class="no">Reocar</span><span class="o">::</span><span class="no">CacheWorker</span><span class="p">.</span><span class="nf">register_cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="o">*</span><span class="n">related_modules</span><span class="p">)</span>
+
+  <span class="no">Rails</span><span class="p">.</span><span class="nf">cache</span><span class="p">.</span><span class="nf">fetch</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="n">cache_options</span><span class="p">)</span> <span class="k">do</span>
+    <span class="k">yield</span> <span class="k">if</span> <span class="nb">block_given?</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">related_module_identity</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span> <span class="o">=</span> <span class="n">wash</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">identity_hash</span> <span class="o">=</span> <span class="n">current_identity</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+
+  <span class="n">identity_hash</span><span class="p">.</span><span class="nf">each_pair</span><span class="p">.</span><span class="nf">map</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">|</span>
+    <span class="s2">"</span><span class="si">#{</span><span class="n">k</span><span class="si">}</span><span class="s2">.</span><span class="si">#{</span><span class="n">v</span><span class="si">}</span><span class="s2">"</span>
+  <span class="k">end</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="s1">':'</span><span class="p">).</span><span class="nf">hexdigest</span>
+<span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">update_module_identity!</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span> <span class="o">=</span> <span class="n">wash</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="nb">hash</span> <span class="o">=</span> <span class="n">current_identity</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+
+  <span class="n">module_names</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="o">|</span>
+    <span class="n">cache_version</span> <span class="o">=</span> <span class="s1">''</span>
+    <span class="kp">loop</span> <span class="k">do</span>
+      <span class="n">cache_version</span> <span class="o">=</span> <span class="no">SecureRandom</span><span class="p">.</span><span class="nf">urlsafe_base64</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+      <span class="k">break</span> <span class="k">if</span> <span class="n">cache_version</span> <span class="o">!=</span> <span class="p">(</span><span class="nb">hash</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">||</span> <span class="s1">''</span><span class="p">)</span>
+    <span class="k">end</span>
+    <span class="nb">hash</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">cache_version</span>
+  <span class="k">end</span>
+
+  <span class="n">redis_client</span><span class="p">.</span><span class="nf">mapped_hmset</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">current_identity</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span> <span class="o">=</span> <span class="n">wash</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+
+  <span class="n">redis_client</span><span class="p">.</span><span class="nf">mapped_hmget</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="o">*</span><span class="n">module_names</span><span class="p">)</span>
+<span class="k">end</span>
+
+<span class="k">def</span> <span class="nf">update_module_identity!</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span> <span class="o">=</span> <span class="n">wash</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="nb">hash</span> <span class="o">=</span> <span class="n">current_identity</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+
+  <span class="n">module_names</span><span class="p">.</span><span class="nf">each</span> <span class="k">do</span> <span class="o">|</span><span class="n">k</span><span class="o">|</span>
+    <span class="n">cache_version</span> <span class="o">=</span> <span class="s1">''</span>
+    <span class="kp">loop</span> <span class="k">do</span>
+      <span class="n">cache_version</span> <span class="o">=</span> <span class="no">SecureRandom</span><span class="p">.</span><span class="nf">urlsafe_base64</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+      <span class="k">break</span> <span class="k">if</span> <span class="n">cache_version</span> <span class="o">!=</span> <span class="p">(</span><span class="nb">hash</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">||</span> <span class="s1">''</span><span class="p">)</span>
+    <span class="k">end</span>
+    <span class="nb">hash</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">cache_version</span>
+  <span class="k">end</span>
+
+  <span class="n">redis_client</span><span class="p">.</span><span class="nf">mapped_hmset</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="nb">hash</span><span class="p">)</span>
+<span class="k">end</span>
+
+
+<span class="k">def</span> <span class="nf">wash</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span> <span class="o">=</span> <span class="n">module_names</span><span class="p">.</span><span class="nf">is_a?</span><span class="p">(</span><span class="no">Array</span><span class="p">)</span> <span class="p">?</span> <span class="n">module_names</span> <span class="p">:</span> <span class="no">Array</span><span class="p">(</span><span class="n">module_names</span><span class="p">)</span>
+  <span class="n">module_names</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="o">&amp;</span><span class="ss">:to_s</span><span class="p">).</span><span class="nf">sort</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># 用法</span>
+<span class="n">cache_key</span> <span class="o">=</span> <span class="s1">'current_key_name'</span>
+<span class="n">cached_data</span> <span class="o">=</span> <span class="n">cache</span><span class="p">(</span><span class="n">cache_key</span><span class="p">,</span> <span class="ss">related_modules: </span><span class="p">[</span><span class="no">Model1</span><span class="p">,</span> <span class="no">Model2</span><span class="p">])</span> <span class="k">do</span>
+  <span class="n">logic</span>
+  <span class="o">...</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<h3 id="事件处理">事件处理</h3>
+
+<ul>
+  <li>
+    <p>监听相关事件</p>
+
+    <p>先注册事件监听，在<code class="highlighter-rouge">config/initializers</code>中增加<code class="highlighter-rouge">subscribe_notification.rb</code>文件，并增加以下内容：</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="no">ActiveSupport</span><span class="o">::</span><span class="no">Notifications</span><span class="p">.</span><span class="nf">subscribe</span><span class="p">(</span><span class="sr">/^</span><span class="si">#{</span><span class="no">Reocar</span><span class="o">::</span><span class="no">Publisher</span><span class="o">::</span><span class="no">COMMIT_EVENT_PREFIX</span><span class="si">}</span><span class="sr">/</span><span class="p">)</span> <span class="k">do</span> <span class="o">|*</span><span class="n">args</span><span class="o">|</span>
+  <span class="no">Reocar</span><span class="o">::</span><span class="no">CacheWorker</span><span class="p">.</span><span class="nf">push</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+
+    <p>这样我们就可以监听到model发出的消息了。</p>
+  </li>
+  <li>
+    <p>淘汰缓存</p>
+
+    <p>监听到事件以后需要及时对缓存进行淘汰，由于我们还没迁移至<a href="https://github.com/mperham/sidekiq" title="sidekiq">sidekiq</a>，所以决定启动一个专门处理该事件的工作线程。</p>
+
+    <div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">module</span> <span class="nn">Reocar</span>
+  <span class="k">module</span> <span class="nn">CacheWorker</span>
+    <span class="k">def</span> <span class="nf">push</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+      <span class="n">event</span> <span class="o">=</span> <span class="no">ActiveSupport</span><span class="o">::</span><span class="no">Notifications</span><span class="o">::</span><span class="no">Event</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+      <span class="n">queue_push</span><span class="p">(</span><span class="n">event</span><span class="p">.</span><span class="nf">payload</span><span class="p">[</span><span class="ss">:class</span><span class="p">])</span>
+      <span class="k">if</span> <span class="n">worker</span><span class="p">.</span><span class="nf">stop?</span> <span class="o">&amp;&amp;</span> <span class="n">worker</span><span class="p">.</span><span class="nf">status</span> <span class="o">!=</span> <span class="s1">'sleep'</span>
+        <span class="no">Thread</span><span class="p">.</span><span class="nf">current</span><span class="p">[</span><span class="ss">:cw_thread</span><span class="p">]</span> <span class="o">=</span> <span class="kp">nil</span>
+        <span class="n">worker</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+
+    <span class="k">def</span> <span class="nf">worker</span>
+      <span class="no">Thread</span><span class="p">.</span><span class="nf">current</span><span class="p">[</span><span class="ss">:cw_thread</span><span class="p">]</span> <span class="o">||=</span> <span class="no">Thread</span><span class="p">.</span><span class="nf">new</span> <span class="k">do</span>
+        <span class="k">while</span> <span class="n">args</span> <span class="o">=</span> <span class="n">queue_pop</span>
+          <span class="n">wipe_cache</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="k">end</span>
+      <span class="k">end</span>
+    <span class="k">end</span>
+
+    <span class="k">def</span> <span class="nf">wipe_cache</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+      <span class="k">return</span> <span class="k">if</span> <span class="n">module_name</span><span class="p">.</span><span class="nf">blank?</span>
+
+      <span class="n">update_module_identity!</span><span class="p">(</span><span class="n">module_name</span><span class="p">)</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div>    </div>
+  </li>
+</ul>
+
+<p>这个方案对缓存的管理是比较粗旷的，对redis操作频率不高但是内存消耗比精细管理要高一些。在使用中很容易就可以找出当前缓存的关联model，通过按model定义publish_event即可实现更精细的过期控制。上面给出的只是一个比较初级的版本，顺着这个思路应该可以实现更简易的缓存管理组件。</p>
+
+<p>本文只在做数据库读写分离前适用，读写分离后缓存管理要复杂得多，这里不做讨论。</p>
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2018
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish.github.io&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
