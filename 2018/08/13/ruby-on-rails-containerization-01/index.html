@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Ruby on Rails容器化实践（一） - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2018/08/13/ruby-on-rails-containerization-01/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/portfolio/images/rails_containerization.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/portfolio/images/rails_containerization.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#Docker" title="Docker">Docker</a>
+            
+            <a class="tag" href="/tags/#Kubernetes" title="Kubernetes">Kubernetes</a>
+            
+          </div>
+          <h1>Ruby on Rails容器化实践（一）</h1>
+          
+          
+          <h2 class="subheading">多环境服务架构设计</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-13
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>为了方便新功能的开发和对接Reocar的Staging环境从1个变成了8个，其中7个是用于新需求测试和第三方渠道对接，还有一个是预发布环境。</p>
+
+<p>初代测试环境使用了基于KVM技术的虚拟机技术，对外需要占用一个公网IP。随着团队扩张，测试环境也跟着扩展到两个，这时公网IP的80端口已经被占用了，只能另外开端口进行服务。于是开启了测试环境的混沌时代，每增加一个环境就新增一组域名和端口，当增加到第三组环境时，已经没有人能记住所有的域名和端口。每组环境也由原来的1个服务增加到4个，混乱的域名和端口增加了团队沟通成本。</p>
+
+<p>我决定对测试环境的服务架构进行重新设计。公网IP是个非常匮乏的资源，必须要好好利用起来，域名应当整齐划一降低记忆成本，响应全站HTTPS化号召重视数据安全。</p>
+
+<h1 id="整体结构">整体结构</h1>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                     Nginx
+                   ____________________|_______________________
+                   |                                          |
+                Staging1               ...                 StagingN
+    _______________|_____________              _______________|______________
+    |        |        |         |              |         |        |         |
+  Puma    nodemon  nodemon    Puma     ...    Puma    nodemon  nodemon     Puma
+    |       |         |         |              |        |         |         |
+Backend    Web  Mobile/WeChat  API          Backend    Web  Mobile/WeChat  API
+|------------------------------------------------------------------------------|
+|                               Docker Instance                                |
+|------------------------------------------------------------------------------|
+</code></pre></div></div>
+
+<h2 id="nginx">Nginx</h2>
+
+<p>Nginx容器将80和443端口映射到主机上，同时负责卸载HTTPS后将流量转发到相应的容器中。HTTPS使用<a href="https://letsencrypt.org" title="Let's Encrypt - Free SSL/TLS Certificates">Let’s Encrypt</a>的ECC证书，并配置crontab每个星期检查是否需要延期。配置gzip压缩，节省机房上行流量。一个反向代理的示例如下所示，在编写中将相同配置抽取到单独的文件从而可以在不同配置中复用，其中如果使用了泛域名证书<code class="highlighter-rouge">conf.d/ssl.inc</code>可以放到nginx.conf中，每个server文件就不需要再引用该文件了。</p>
+
+<div class="language-nginx highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># backend1.lv3.lv2.lv1.conf
+</span>
+<span class="k">upstream</span> <span class="s">s1_backend</span> <span class="p">{</span>
+   <span class="kn">server</span> <span class="nf">backend1.reocar.service</span><span class="p">:</span><span class="mi">3000</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">server</span><span class="p">{</span>
+  <span class="kn">listen</span> <span class="mi">80</span> <span class="s">default_server</span><span class="p">;</span>
+  <span class="kn">listen</span> <span class="mi">443</span> <span class="s">ssl</span> <span class="s">http2</span> <span class="s">default_server</span><span class="p">;</span>
+
+  <span class="kn">include</span> <span class="s">conf.d/ssl.inc</span><span class="p">;</span>
+
+  <span class="kn">server_name</span> <span class="s">backend1.lv3.lv2.lv1</span><span class="p">;</span>
+
+  <span class="kn">location</span> <span class="n">/</span> <span class="p">{</span>
+    <span class="kn">include</span>    <span class="s">conf.d/proxy_set_header.inc</span><span class="p">;</span>
+
+    <span class="kn">proxy_pass</span> <span class="s">http://s1_backend</span><span class="p">;</span>
+  <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<div class="language-nginx highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># conf.d/proxy_set_header.inc
+</span>
+<span class="k">proxy_read_timeout</span> <span class="mi">300</span><span class="p">;</span>
+<span class="k">proxy_connect_timeout</span> <span class="mi">300</span><span class="p">;</span>
+<span class="k">proxy_redirect</span>     <span class="no">off</span><span class="p">;</span>
+
+<span class="k">proxy_set_header</span>    <span class="s">X-Forwarded-By</span>       <span class="nv">$server_addr</span><span class="p">:</span><span class="nv">$server_port</span><span class="p">;</span>
+<span class="k">proxy_set_header</span>    <span class="s">X-Forwarded-For</span>      <span class="nv">$remote_addr</span><span class="p">;</span>
+<span class="k">proxy_set_header</span>    <span class="s">X-Forwarded-Proto</span>    <span class="nv">$scheme</span><span class="p">;</span>
+<span class="k">proxy_set_header</span>    <span class="s">Host</span>                 <span class="nv">$host</span><span class="p">;</span>
+<span class="k">proxy_set_header</span>    <span class="s">X-Real-IP</span>            <span class="nv">$remote_addr</span><span class="p">;</span>
+</code></pre></div></div>
+
+<div class="language-nginx highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># conf.d/ssl.inc
+</span>
+<span class="k">ssl_certificate</span> <span class="n">/path/to/ssl/name.cer</span><span class="p">;</span>
+<span class="k">ssl_certificate_key</span> <span class="n">/path/to/ssl/name.key</span><span class="p">;</span>
+<span class="k">ssl_protocols</span> <span class="s">TLSv1.1</span> <span class="s">TLSv1.2</span> <span class="s">TLSv1.3</span><span class="p">;</span>
+<span class="k">ssl_prefer_server_ciphers</span> <span class="no">on</span><span class="p">;</span>
+<span class="k">ssl_dhparam</span> <span class="n">/path/to/ssl/dhparam.pem</span><span class="p">;</span> <span class="c1"># openssl dhparam -out /path/to/dhparam.pem 4096
+# ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384;
+</span><span class="k">ssl_ecdh_curve</span> <span class="s">secp384r1</span><span class="p">;</span>
+<span class="k">ssl_session_timeout</span>  <span class="mi">30m</span><span class="p">;</span>
+<span class="k">ssl_session_cache</span> <span class="s">shared:SSL:8m</span><span class="p">;</span>
+<span class="k">ssl_session_tickets</span> <span class="no">off</span><span class="p">;</span>
+<span class="k">ssl_stapling</span> <span class="no">on</span><span class="p">;</span>
+<span class="k">ssl_stapling_verify</span> <span class="no">on</span><span class="p">;</span>
+<span class="k">resolver</span> <span class="mi">100</span><span class="s">.100.2.138</span> <span class="mi">100</span><span class="s">.100.2.136</span> <span class="mi">8</span><span class="s">.8.8.8</span> <span class="s">valid=300s</span><span class="p">;</span>
+<span class="k">resolver_timeout</span> <span class="s">5s</span><span class="p">;</span>
+<span class="k">add_header</span> <span class="s">Strict-Transport-Security</span> <span class="s">"max-age=63072000</span><span class="p">;</span> <span class="k">includeSubDomains</span><span class="p">;</span> <span class="k">preload"</span><span class="p">;</span>
+<span class="k">add_header</span> <span class="s">X-Frame-Options</span> <span class="s">DENY</span><span class="p">;</span>
+<span class="k">add_header</span> <span class="s">X-Content-Type-Options</span> <span class="s">nosniff</span><span class="p">;</span>
+<span class="k">add_header</span> <span class="s">X-XSS-Protection</span> <span class="s">"1</span><span class="p">;</span> <span class="k">mode=block"</span><span class="p">;</span>
+<span class="k">add_header</span> <span class="s">X-Robots-Tag</span> <span class="s">none</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>使用反向代理理论上一个公网IP可以带无限多个域名，只要请求的时候使用了正确的域名即可。某些银行在支付时只能使用IP+端口的方式配置回调地址，Nginx同样可以处理这种问题。只要修改listen的端口为目标端口并将容器的相应接口映射到主机上，server_name配置为<code class="highlighter-rouge">_</code>代表其它server都没有匹配时使用当前配置，因为该端口具有明确目标，所以将proxy_pass指向正确的upstream即可。</p>
+
+<h2 id="统一域名">统一域名</h2>
+
+<p>建议划一个专用的三级域名用于这些测试环境，命名按照<code class="highlighter-rouge">[类型][编号].三级域名.二级域名.顶级域名</code>的方式进行，这样就非常整洁了，在申请HTTPS正式时可以将该三级域名及其下的所有四级域名全部包含进去，只需要申请一个证书即可服务全部域名。</p>
+
+<h2 id="证书申请">证书申请</h2>
+
+<p>泛域名解析只能使用DNS方式申请，这里我们选<a href="https://github.com/Neilpang/acme.sh" title="An ACME Shell script">acme.sh</a>。安装方式见项目主页，这里以阿里云DNS为例申请一个泛域名解析。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># cat ~/.acme.sh/account.conf</span>
+
+<span class="c">#LOG_FILE="/root/.acme.sh/acme.sh.log"</span>
+<span class="c">#LOG_LEVEL=1</span>
+
+<span class="c">#AUTO_UPGRADE="1"</span>
+
+<span class="c">#NO_TIMESTAMP=1</span>
+
+<span class="nv">ACCOUNT_EMAIL</span><span class="o">=</span><span class="s1">'you@email.com'</span>
+<span class="nv">SAVED_Ali_Key</span><span class="o">=</span><span class="s1">'LTAI*********Wb5'</span>
+<span class="nv">SAVED_Ali_Secret</span><span class="o">=</span><span class="s1">'Ra8***************JsDoS'</span>
+<span class="nv">USER_PATH</span><span class="o">=</span><span class="s1">'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'</span>
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>acme.sh <span class="nt">--issue</span> <span class="nt">--dns</span> dns_ali <span class="nt">-d</span> lv3.lv2.lv1 <span class="nt">-d</span> <span class="k">*</span>.lv3.lv2.lv1 <span class="nt">--ecc</span> <span class="nt">-k</span> ec-384
+</code></pre></div></div>
+
+<p>执行完成后，工具会自动配置一个crontab任务，使用如下命令即可查看。</p>
+
+<pre><code class="language-log"># crontab -l
+29 0 * * * "/root/.acme.sh"/acme.sh --cron --home "/root/.acme.sh" &gt; /dev/null
+</code></pre>
+
+<p>接下来再将<code class="highlighter-rouge">~/.acme.sh/lv3.lv2.lv1_ecc/</code>中的证书软链到一个nginx能访问的目录中即可。</p>
+
+<p>注：</p>
+
+<ul>
+  <li>敏感信息我都进行了处理，请按照实际情况修改</li>
+  <li>使用时请将<code class="highlighter-rouge">lv3.lv2.lv1</code>替换为你的目标域名</li>
+</ul>
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/12/rails-logger-wrap/" data-toggle="tooltip" data-placement="top" title="Rails日志组件封装">
+            Previous<br>
+            <span>Rails日志组件封装</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2018
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

@@ -176,6 +176,28 @@
         ">
       
 <div class="post-preview">
+  <a href="/2018/08/13/ruby-on-rails-containerization-01/">
+    <h2 class="post-title">
+      Ruby on Rails容器化实践（一）
+    </h2>
+    
+    <h3 class="post-subtitle">
+      多环境服务架构设计
+    </h3>
+    
+    <div class="post-content-preview">
+      为了方便新功能的开发和对接Reocar的Staging环境从1个变成了8个，其中7个是用于新需求测试和第三方渠道对接，还有一个是预发布环境。
+
+初代测试环境使用了基于KVM技术的虚拟机技术，对外需要占用一个公网IP。随着团队扩张，测试环境也跟着扩展到两个，这时公网IP的80端口已经被占用了，只能另外开端口进行服务。于是开启了测试环境的混沌时代，每增加一个环境就新增一组域名和端口，当增加到第三...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2018-08-13
+  </p>
+</div>
+<hr>
+
+<div class="post-preview">
   <a href="/2018/08/12/rails-logger-wrap/">
     <h2 class="post-title">
       Rails日志组件封装

@@ -5,9 +5,156 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Sun, 12 Aug 2018 23:01:32 +0800</pubDate>
-    <lastBuildDate>Sun, 12 Aug 2018 23:01:32 +0800</lastBuildDate>
+    <pubDate>Mon, 13 Aug 2018 22:57:29 +0800</pubDate>
+    <lastBuildDate>Mon, 13 Aug 2018 22:57:29 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
+    
+      <item>
+        <title>Ruby on Rails容器化实践（一）</title>
+        <description>&lt;p&gt;为了方便新功能的开发和对接Reocar的Staging环境从1个变成了8个，其中7个是用于新需求测试和第三方渠道对接，还有一个是预发布环境。&lt;/p&gt;
+
+&lt;p&gt;初代测试环境使用了基于KVM技术的虚拟机技术，对外需要占用一个公网IP。随着团队扩张，测试环境也跟着扩展到两个，这时公网IP的80端口已经被占用了，只能另外开端口进行服务。于是开启了测试环境的混沌时代，每增加一个环境就新增一组域名和端口，当增加到第三组环境时，已经没有人能记住所有的域名和端口。每组环境也由原来的1个服务增加到4个，混乱的域名和端口增加了团队沟通成本。&lt;/p&gt;
+
+&lt;p&gt;我决定对测试环境的服务架构进行重新设计。公网IP是个非常匮乏的资源，必须要好好利用起来，域名应当整齐划一降低记忆成本，响应全站HTTPS化号召重视数据安全。&lt;/p&gt;
+
+&lt;h1 id=&quot;整体结构&quot;&gt;整体结构&lt;/h1&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;                                     Nginx
+                   ____________________|_______________________
+                   |                                          |
+                Staging1               ...                 StagingN
+    _______________|_____________              _______________|______________
+    |        |        |         |              |         |        |         |
+  Puma    nodemon  nodemon    Puma     ...    Puma    nodemon  nodemon     Puma
+    |       |         |         |              |        |         |         |
+Backend    Web  Mobile/WeChat  API          Backend    Web  Mobile/WeChat  API
+|------------------------------------------------------------------------------|
+|                               Docker Instance                                |
+|------------------------------------------------------------------------------|
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;nginx&quot;&gt;Nginx&lt;/h2&gt;
+
+&lt;p&gt;Nginx容器将80和443端口映射到主机上，同时负责卸载HTTPS后将流量转发到相应的容器中。HTTPS使用&lt;a href=&quot;https://letsencrypt.org&quot; title=&quot;Let's Encrypt - Free SSL/TLS Certificates&quot;&gt;Let’s Encrypt&lt;/a&gt;的ECC证书，并配置crontab每个星期检查是否需要延期。配置gzip压缩，节省机房上行流量。一个反向代理的示例如下所示，在编写中将相同配置抽取到单独的文件从而可以在不同配置中复用，其中如果使用了泛域名证书&lt;code class=&quot;highlighter-rouge&quot;&gt;conf.d/ssl.inc&lt;/code&gt;可以放到nginx.conf中，每个server文件就不需要再引用该文件了。&lt;/p&gt;
+
+&lt;div class=&quot;language-nginx highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c1&quot;&gt;# backend1.lv3.lv2.lv1.conf
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;upstream&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;s1_backend&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+   &lt;span class=&quot;kn&quot;&gt;server&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;backend1.reocar.service&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3000&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;kn&quot;&gt;listen&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;80&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default_server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;kn&quot;&gt;listen&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;443&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;ssl&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;http2&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default_server&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+  &lt;span class=&quot;kn&quot;&gt;include&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;conf.d/ssl.inc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+  &lt;span class=&quot;kn&quot;&gt;server_name&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;backend1.lv3.lv2.lv1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+  &lt;span class=&quot;kn&quot;&gt;location&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kn&quot;&gt;include&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;conf.d/proxy_set_header.inc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+    &lt;span class=&quot;kn&quot;&gt;proxy_pass&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;http://s1_backend&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-nginx highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c1&quot;&gt;# conf.d/proxy_set_header.inc
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_read_timeout&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;300&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_connect_timeout&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;300&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_redirect&lt;/span&gt;     &lt;span class=&quot;no&quot;&gt;off&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;proxy_set_header&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;X-Forwarded-By&lt;/span&gt;       &lt;span class=&quot;nv&quot;&gt;$server_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$server_port&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_set_header&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;X-Forwarded-For&lt;/span&gt;      &lt;span class=&quot;nv&quot;&gt;$remote_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_set_header&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;X-Forwarded-Proto&lt;/span&gt;    &lt;span class=&quot;nv&quot;&gt;$scheme&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_set_header&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;Host&lt;/span&gt;                 &lt;span class=&quot;nv&quot;&gt;$host&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;proxy_set_header&lt;/span&gt;    &lt;span class=&quot;s&quot;&gt;X-Real-IP&lt;/span&gt;            &lt;span class=&quot;nv&quot;&gt;$remote_addr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-nginx highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c1&quot;&gt;# conf.d/ssl.inc
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_certificate&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;/path/to/ssl/name.cer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_certificate_key&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;/path/to/ssl/name.key&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_protocols&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;TLSv1.1&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;TLSv1.2&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;TLSv1.3&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_prefer_server_ciphers&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;on&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_dhparam&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;/path/to/ssl/dhparam.pem&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;# openssl dhparam -out /path/to/dhparam.pem 4096
+# ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384;
+&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;ssl_ecdh_curve&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;secp384r1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_session_timeout&lt;/span&gt;  &lt;span class=&quot;mi&quot;&gt;30m&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_session_cache&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;shared:SSL:8m&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_session_tickets&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;off&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_stapling&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;on&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ssl_stapling_verify&lt;/span&gt; &lt;span class=&quot;no&quot;&gt;on&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;resolver&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;.100.2.138&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;.100.2.136&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;.8.8.8&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;valid=300s&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;resolver_timeout&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;5s&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;add_header&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Strict-Transport-Security&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;max-age=63072000&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;includeSubDomains&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;preload&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;add_header&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;X-Frame-Options&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;DENY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;add_header&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;X-Content-Type-Options&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;nosniff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;add_header&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;X-XSS-Protection&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;mode=block&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;add_header&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;X-Robots-Tag&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;none&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;使用反向代理理论上一个公网IP可以带无限多个域名，只要请求的时候使用了正确的域名即可。某些银行在支付时只能使用IP+端口的方式配置回调地址，Nginx同样可以处理这种问题。只要修改listen的端口为目标端口并将容器的相应接口映射到主机上，server_name配置为&lt;code class=&quot;highlighter-rouge&quot;&gt;_&lt;/code&gt;代表其它server都没有匹配时使用当前配置，因为该端口具有明确目标，所以将proxy_pass指向正确的upstream即可。&lt;/p&gt;
+
+&lt;h2 id=&quot;统一域名&quot;&gt;统一域名&lt;/h2&gt;
+
+&lt;p&gt;建议划一个专用的三级域名用于这些测试环境，命名按照&lt;code class=&quot;highlighter-rouge&quot;&gt;[类型][编号].三级域名.二级域名.顶级域名&lt;/code&gt;的方式进行，这样就非常整洁了，在申请HTTPS正式时可以将该三级域名及其下的所有四级域名全部包含进去，只需要申请一个证书即可服务全部域名。&lt;/p&gt;
+
+&lt;h2 id=&quot;证书申请&quot;&gt;证书申请&lt;/h2&gt;
+
+&lt;p&gt;泛域名解析只能使用DNS方式申请，这里我们选&lt;a href=&quot;https://github.com/Neilpang/acme.sh&quot; title=&quot;An ACME Shell script&quot;&gt;acme.sh&lt;/a&gt;。安装方式见项目主页，这里以阿里云DNS为例申请一个泛域名解析。&lt;/p&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;# cat ~/.acme.sh/account.conf&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;#LOG_FILE=&quot;/root/.acme.sh/acme.sh.log&quot;&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;#LOG_LEVEL=1&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;#AUTO_UPGRADE=&quot;1&quot;&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;#NO_TIMESTAMP=1&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;ACCOUNT_EMAIL&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'you@email.com'&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;SAVED_Ali_Key&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'LTAI*********Wb5'&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;SAVED_Ali_Secret&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'Ra8***************JsDoS'&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;USER_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;acme.sh &lt;span class=&quot;nt&quot;&gt;--issue&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--dns&lt;/span&gt; dns_ali &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt; lv3.lv2.lv1 &lt;span class=&quot;nt&quot;&gt;-d&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;.lv3.lv2.lv1 &lt;span class=&quot;nt&quot;&gt;--ecc&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-k&lt;/span&gt; ec-384
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;执行完成后，工具会自动配置一个crontab任务，使用如下命令即可查看。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-log&quot;&gt;# crontab -l
+29 0 * * * &quot;/root/.acme.sh&quot;/acme.sh --cron --home &quot;/root/.acme.sh&quot; &amp;gt; /dev/null
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;接下来再将&lt;code class=&quot;highlighter-rouge&quot;&gt;~/.acme.sh/lv3.lv2.lv1_ecc/&lt;/code&gt;中的证书软链到一个nginx能访问的目录中即可。&lt;/p&gt;
+
+&lt;p&gt;注：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;敏感信息我都进行了处理，请按照实际情况修改&lt;/li&gt;
+  &lt;li&gt;使用时请将&lt;code class=&quot;highlighter-rouge&quot;&gt;lv3.lv2.lv1&lt;/code&gt;替换为你的目标域名&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Mon, 13 Aug 2018 21:46:18 +0800</pubDate>
+        <link>https://archfish.top/2018/08/13/ruby-on-rails-containerization-01/</link>
+        <guid isPermaLink="true">https://archfish.top/2018/08/13/ruby-on-rails-containerization-01/</guid>
+        
+        <category>Ruby</category>
+        
+        <category>Rails</category>
+        
+        <category>Docker</category>
+        
+        <category>Kubernetes</category>
+        
+        
+      </item>
     
       <item>
         <title>Rails日志组件封装</title>
