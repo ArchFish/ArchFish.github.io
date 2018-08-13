@@ -5,8 +5,8 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Mon, 13 Aug 2018 22:57:29 +0800</pubDate>
-    <lastBuildDate>Mon, 13 Aug 2018 22:57:29 +0800</lastBuildDate>
+    <pubDate>Mon, 13 Aug 2018 23:27:05 +0800</pubDate>
+    <lastBuildDate>Mon, 13 Aug 2018 23:27:05 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
     
       <item>
@@ -137,6 +137,8 @@ Backend    Web  Mobile/WeChat  API          Backend    Web  Mobile/WeChat  API
   &lt;li&gt;敏感信息我都进行了处理，请按照实际情况修改&lt;/li&gt;
   &lt;li&gt;使用时请将&lt;code class=&quot;highlighter-rouge&quot;&gt;lv3.lv2.lv1&lt;/code&gt;替换为你的目标域名&lt;/li&gt;
 &lt;/ul&gt;
+
+&lt;hr /&gt;
 
 &lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
 
@@ -291,6 +293,8 @@ Backend    Web  Mobile/WeChat  API          Backend    Web  Mobile/WeChat  API
 
 &lt;p&gt;到此，我们的日志模块就设计好了。title和body部分除了使用竖线分割外，为了正确切割出实际内容增加了额外标记&lt;code class=&quot;highlighter-rouge&quot;&gt;##+&lt;/code&gt;和&lt;code class=&quot;highlighter-rouge&quot;&gt;-##&lt;/code&gt;，这样logstash在切分时就不会出错了。
 如果需要对日志格式进行调整，只需要升级&lt;code class=&quot;highlighter-rouge&quot;&gt;VERSION&lt;/code&gt;编号即可，理论上通过对logstash的规则进行定制，多版本同时存在应该是没什么问题的。&lt;/p&gt;
+
+&lt;hr /&gt;
 
 &lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
 
@@ -605,6 +609,8 @@ Backend    Web  Mobile/WeChat  API          Backend    Web  Mobile/WeChat  API
 &lt;p&gt;这个方案对缓存的管理是比较粗旷的，对redis操作频率不高但是内存消耗比精细管理要高一些。在使用中很容易就可以找出当前缓存的关联model，通过按model定义publish_event即可实现更精细的过期控制。上面给出的只是一个比较初级的版本，顺着这个思路应该可以实现更简易的缓存管理组件。&lt;/p&gt;
 
 &lt;p&gt;本文只在做数据库读写分离前适用，读写分离后缓存管理要复杂得多，这里不做讨论。&lt;/p&gt;
+
+&lt;hr /&gt;
 
 &lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
 
