@@ -178,6 +178,28 @@
         ">
       
 <div class="post-preview">
+  <a href="/2018/08/14/carrierwave-with-s3-api/">
+    <h2 class="post-title">
+      Ruby on Rails文件存储整合S3 API
+    </h2>
+    
+    <h3 class="post-subtitle">
+      存储对应用透明，存储升级扩容更灵活
+    </h3>
+    
+    <div class="post-content-preview">
+      在项目初期我们将一台服务器插满硬盘并提供NFS服务挂载到各业务服务器上。业务产生的文件分为两类，一类是涉及隐私的敏感文件，另一类是可公开访问的普通文件。普通文件需要对接CDN以降低服务器带宽压力。敏感文件只能在相应业务使用到时才能访问，通常是先加载到内存然后再嵌入页面或Base64编码后通过JSON返回给前端。
+
+在业务系统中使用CarrierWave作为文件上传管理组件，部分图片相关业务需...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2018-08-14
+  </p>
+</div>
+<hr>
+
+<div class="post-preview">
   <a href="/2018/08/13/ruby-on-rails-containerization-01/">
     <h2 class="post-title">
       Ruby on Rails容器化实践（一）

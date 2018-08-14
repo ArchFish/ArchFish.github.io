@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="google-site-verification" content="HUq9zIqmlLMHO-Ns9tEu6drasagknezrT2z0ispbmA8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Ruby on Rails文件存储整合S3 API - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2018/08/14/carrierwave-with-s3-api/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/s3_bucket.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/s3_bucket.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Ceph" title="Ceph">Ceph</a>
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#S3" title="S3">S3</a>
+            
+          </div>
+          <h1>Ruby on Rails文件存储整合S3 API</h1>
+          
+          
+          <h2 class="subheading">存储对应用透明，存储升级扩容更灵活</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-14
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>在项目初期我们将一台服务器插满硬盘并提供NFS服务挂载到各业务服务器上。业务产生的文件分为两类，一类是涉及隐私的敏感文件，另一类是可公开访问的普通文件。普通文件需要对接CDN以降低服务器带宽压力。敏感文件只能在相应业务使用到时才能访问，通常是先加载到内存然后再嵌入页面或Base64编码后通过JSON返回给前端。</p>
+
+<p>在业务系统中使用<a href="https://github.com/carrierwaveuploader/carrierwave" title="CarrierWave">CarrierWave</a>作为文件上传管理组件，部分图片相关业务需要生成缩略图或保存多版本文件。</p>
+
+<h2 id="files">files</h2>
+
+<p>对外URL只能处理可公开访问的文件，对于隐私文件只能使用文件操作读取到内存。下面是uploader封装统一URL的例子，其他的uploader继承该class即可，使用时直接使用<code class="highlighter-rouge">external_url</code>。</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BaseUploader</span> <span class="o">&lt;</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">Uploader</span><span class="o">::</span><span class="no">Base</span>
+  <span class="kp">include</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">MiniMagick</span>
+  <span class="n">storage</span> <span class="ss">:file</span>
+
+  <span class="k">def</span> <span class="nf">external_url</span>
+    <span class="k">return</span> <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">blank?</span>
+
+    <span class="k">return</span> <span class="k">if</span> <span class="n">private_file?</span>
+
+    <span class="c1"># 使用最后更新时间作为CDN自动过期方案</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:updated_at</span><span class="p">)</span> <span class="o">||</span> <span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:created_at</span><span class="p">)</span> <span class="o">||</span> <span class="no">Time</span><span class="p">.</span><span class="nf">current</span><span class="p">).</span><span class="nf">tv_sec</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">"?t=</span><span class="si">#{</span><span class="n">s</span><span class="si">}</span><span class="s2">"</span>
+
+    <span class="n">wrap_cdn</span><span class="p">(</span><span class="n">url</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="no">File</span><span class="p">.</span><span class="nf">expand_path</span><span class="p">(</span><span class="no">Rails</span><span class="p">.</span><span class="nf">root</span><span class="p">),</span> <span class="s1">''</span><span class="p">)</span> <span class="o">+</span> <span class="n">s</span><span class="p">)</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">wrap_cdn</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">fit_cdn_condition?</span>
+      <span class="no">File</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">cdn_domain</span><span class="p">,</span> <span class="n">file_path</span><span class="p">)</span>
+    <span class="k">else</span>
+      <span class="no">File</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">backend_domain</span><span class="p">,</span> <span class="n">file_path</span><span class="p">)</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h2 id="aws">aws</h2>
+
+<p>我们是托管服务器，综合对比了几款S3兼容存储软件后决定选择Ceph作为存储服务，考虑到后期可能需要块存储Ceph是个不错的选择。CarrierWave配合<a href="https://github.com/sorentwo/carrierwave-aws" title="carrierwave-aws">carrierwave-aws</a>可以很方便使用<a href="https://github.com/aws/aws-sdk-ruby" title="aws-sdk-ruby">aws-sdk-ruby</a>,假设RGW服务地址为<code class="highlighter-rouge">http://ceph:10086</code>则可以通过下面的方式配置s3</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># config/initializers/carrierwave.rb</span>
+
+<span class="no">CarrierWave</span><span class="p">.</span><span class="nf">configure</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">storage</span>    <span class="o">=</span> <span class="ss">:aws</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_bucket</span> <span class="o">=</span> <span class="ss">:mybucket</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_acl</span>    <span class="o">=</span> <span class="s1">'public-read'</span>
+
+  <span class="c1"># 该参数用于设置图片访问域名</span>
+  <span class="c1"># config.asset_host = File.join(endpoint, bucket)</span>
+
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_authenticated_url_expiration</span> <span class="o">=</span> <span class="mi">1</span><span class="p">.</span><span class="nf">days</span><span class="p">.</span><span class="nf">to_i</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_attributes</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># expires: 1.week.from_now.httpdate,</span>
+    <span class="ss">cache_control: </span><span class="s1">'max-age=604800'</span>
+  <span class="p">}</span>
+
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_credentials</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="ss">access_key_id:     :access_key</span><span class="p">,</span>
+    <span class="ss">secret_access_key: :secret_key</span><span class="p">,</span>
+    <span class="ss">force_path_style:  </span><span class="kp">true</span><span class="p">,</span>
+    <span class="ss">endpoint:          </span><span class="s1">'http://ceph:10086'</span><span class="p">,</span>
+    <span class="ss">region:            </span><span class="s1">'us-east-1'</span><span class="p">,</span>
+    <span class="ss">stub_responses:    </span><span class="no">Rails</span><span class="p">.</span><span class="nf">env</span><span class="p">.</span><span class="nf">test?</span> <span class="c1"># Optional, avoid hitting S3 actual during tests</span>
+  <span class="p">}</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BaseUploader</span> <span class="o">&lt;</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">Uploader</span><span class="o">::</span><span class="no">Base</span>
+  <span class="kp">include</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">MiniMagick</span>
+  <span class="n">storage</span> <span class="ss">:aws</span>
+
+  <span class="c1"># 获取图片外部访问地址，有CDN可用时使用CDN</span>
+  <span class="k">def</span> <span class="nf">external_url</span>
+    <span class="k">return</span> <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">blank?</span>
+
+    <span class="c1"># 私有文件会带上一些鉴权参数，不能对其进行修改</span>
+    <span class="k">return</span> <span class="n">url</span> <span class="k">unless</span> <span class="n">public_file?</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:updated_at</span><span class="p">)</span> <span class="o">||</span> <span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:created_at</span><span class="p">)</span> <span class="o">||</span> <span class="no">Time</span><span class="p">.</span><span class="nf">current</span><span class="p">).</span><span class="nf">tv_sec</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="s2">"?t=</span><span class="si">#{</span><span class="n">s</span><span class="si">}</span><span class="s2">"</span>
+
+    <span class="n">url_</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">url</span>
+    <span class="c1"># 自定义 asset_host 时不做替换</span>
+    <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">asset_host</span><span class="p">.</span><span class="nf">blank?</span>
+      <span class="n">url_</span> <span class="o">=</span> <span class="n">url_</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="n">backend_domain</span><span class="p">,</span> <span class="n">cdn_domain</span><span class="p">)</span>
+    <span class="k">end</span>
+    <span class="n">url_</span> <span class="o">+</span> <span class="n">s</span>
+  <span class="k">end</span>
+
+  <span class="c1"># 用于处理不同时期不同存放路径问题，无此需求忽略这个方法</span>
+  <span class="k">def</span> <span class="nf">dir_exists?</span><span class="p">(</span><span class="n">dir</span><span class="p">)</span>
+    <span class="c1"># 检查S3存储目录是否存在，其他存储可能不适用</span>
+    <span class="c1"># NOTE S3存储中，如果目录没有文件则父目录也不存在</span>
+    <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">_storage</span> <span class="o">==</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">Storage</span><span class="o">::</span><span class="no">AWS</span>
+      <span class="n">bucket</span> <span class="o">=</span> <span class="no">Aws</span><span class="o">::</span><span class="no">S3</span><span class="o">::</span><span class="no">Bucket</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">aws_bucket</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="nf">aws_credentials</span><span class="p">)</span>
+      <span class="n">bucket</span><span class="p">.</span><span class="nf">objects</span><span class="p">(</span><span class="ss">prefix: </span><span class="n">dir</span><span class="p">).</span><span class="nf">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="nf">any?</span>
+    <span class="k">else</span>
+      <span class="no">Dir</span><span class="p">.</span><span class="nf">exist?</span><span class="p">(</span><span class="n">dir</span><span class="p">)</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>经过上面的修改之后相同的接口就能直接适配S3存储，同时隐私文件夹通过设置合理的expires即可限制资源的访问。</p>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/13/ruby-on-rails-containerization-01/" data-toggle="tooltip" data-placement="top" title="Ruby on Rails容器化实践（一）">
+            Previous<br>
+            <span>Ruby on Rails容器化实践（一）</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2018
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
