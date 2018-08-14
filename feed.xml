@@ -5,8 +5,8 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Tue, 14 Aug 2018 23:10:58 +0800</pubDate>
-    <lastBuildDate>Tue, 14 Aug 2018 23:10:58 +0800</lastBuildDate>
+    <pubDate>Tue, 14 Aug 2018 23:13:55 +0800</pubDate>
+    <lastBuildDate>Tue, 14 Aug 2018 23:13:55 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
     
       <item>
@@ -96,6 +96,12 @@
       &lt;span class=&quot;n&quot;&gt;url_&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;url_&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;sub&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;backend_domain&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;cdn_domain&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
     &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
     &lt;span class=&quot;n&quot;&gt;url_&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;s&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
+
+  &lt;span class=&quot;c1&quot;&gt;# 根据文件类型设置文件的访问权限&lt;/span&gt;
+  &lt;span class=&quot;c1&quot;&gt;# CarrierWave::Uploader::Base::ACCEPTED_ACL&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;aws_acl&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;public_file?&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;?&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'public-read'&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;'private'&lt;/span&gt;
   &lt;span class=&quot;k&quot;&gt;end&lt;/span&gt;
 
   &lt;span class=&quot;c1&quot;&gt;# 用于处理不同时期不同存放路径问题，无此需求忽略这个方法&lt;/span&gt;

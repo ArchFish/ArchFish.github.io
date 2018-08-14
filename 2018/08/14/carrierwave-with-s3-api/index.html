@@ -294,6 +294,12 @@
     <span class="n">url_</span> <span class="o">+</span> <span class="n">s</span>
   <span class="k">end</span>
 
+  <span class="c1"># 根据文件类型设置文件的访问权限</span>
+  <span class="c1"># CarrierWave::Uploader::Base::ACCEPTED_ACL</span>
+  <span class="k">def</span> <span class="nf">aws_acl</span>
+    <span class="n">public_file?</span> <span class="p">?</span> <span class="s1">'public-read'</span> <span class="p">:</span> <span class="s1">'private'</span>
+  <span class="k">end</span>
+
   <span class="c1"># 用于处理不同时期不同存放路径问题，无此需求忽略这个方法</span>
   <span class="k">def</span> <span class="nf">dir_exists?</span><span class="p">(</span><span class="n">dir</span><span class="p">)</span>
     <span class="c1"># 检查S3存储目录是否存在，其他存储可能不适用</span>
