@@ -12,7 +12,7 @@
   <meta name="keywords"  content="">
   <meta name="theme-color" content="#000000">
 
-  <title>Archfish | Blog</title>
+  <title>Golang开发环境搭建（vs code） - Archfish | Blog</title>
 
   <!-- Web App Manifest -->
   <link rel="manifest" href="/pwa/manifest.json">
@@ -21,7 +21,7 @@
   <link rel="shortcut icon" href="/img/favicon.ico">
 
   <!-- Canonical URL -->
-  <link rel="canonical" href="https://archfish.top/">
+  <link rel="canonical" href="https://archfish.top/2018/08/16/vs-code-golang-dev/">
 
   <!-- Bootstrap Core CSS -->
   <link rel="stylesheet" href="/css/bootstrap.min.css">
@@ -147,222 +147,158 @@
 </script>
 
 
-  <!-- Page Header -->
-<header class="intro-header" style="background-image: url('/img/home-bg.jpg')">
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/golang.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/golang.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
   <div class="container">
     <div class="row">
-      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
-        <div class="site-heading">
-          <h1>韦初一的小窝</h1>
-          <!--<hr class="small">-->
-          <span class="subheading">精于心 简于形</span>
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Golang" title="Golang">Golang</a>
+            
+            <a class="tag" href="/tags/#vs code" title="vs code">vs code</a>
+            
+          </div>
+          <h1>Golang开发环境搭建（vs code）</h1>
+          
+          
+          <h2 class="subheading">带梯子和不带梯子两个版本</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-16
+          </span>
         </div>
       </div>
     </div>
   </div>
 </header>
 
-<!-- Main Content -->
-<div class="container">
-	<div class="row">
-    
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
 
-<!-- USE SIDEBAR -->
-    <!-- PostList Container -->
-    <div class="
-            col-lg-8 col-lg-offset-1
-            col-md-8 col-md-offset-1
-            col-sm-12
-            col-xs-12
-            postlist-container
-        ">
+        <h1 id="组织项目">组织项目</h1>
+
+<p>许多从其它语言转到golang的可能都会有一个疑问：GOPATH是什么？官方的<a href="https://github.com/golang/go/wiki/SettingGOPATH" title="SettingGOPATH">wiki</a>是这样说的：</p>
+
+<blockquote>
+  <p>The GOPATH environment variable specifies the location of your workspace.</p>
+</blockquote>
+
+<p>即GOPATH指向一个工作区，可类比到Linux的文件系统，系统只能访问根(/)下的文件，而根之上是什么就不是系统管理的范围了。回到go语言里，GOPATH下的代码才能被go管理，在这个路径之上的源码一概不理会。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code>                                GOPATH
+              ____________________|____________________
+              |                   |                   |
+             src                 bin                 pkg
+        ______|_______        ____|____          _____|_____
+        |     |      |        |       |          |         |
+     GitHub Gopkg  Other        Tools           Platform Code
+</code></pre></div></div>
+
+<p>GOPATH的文件目录如上图所示，src下是以网站命名的文件夹，再往下才是项目目录。通过<code class="highlighter-rouge">go get</code>拉下来的源码就是按这样的层级结构存放的，我们自己的项目也建议保持这样的结构。</p>
+
+<p>以我们公司来讲，我们通常将RoR项目存放在<code class="highlighter-rouge">~/Projects/</code>目录下，那有没有什么法子可以继续保持这样的组织方式还能满足go的组织风格呢？这时候就需要借助<a href="https://www.ibm.com/developerworks/cn/linux/l-cn-hardandsymb-links/index.html" title="理解 Linux 的硬链接与软链接">软链</a>了，通过软链我们在<code class="highlighter-rouge">~/Projects/</code>下创建一个到GOPATH下相应项目的链接，这样就可以继续按照原来的风格管理go项目了。下图演示如何用vs code打开项目：</p>
+
+<pre><code class="language-log">$ echo $GOPATH
+
+/Users/archfish/GoPath
+
+$ ls -lh ~/Projects
+
+lrwxr-xr-x   1 weihl  staff    51B 11 22  2017 gateway -&gt; /Users/archfish/GoPath/src/github.com/fagongzi/gateway
+
+$ cd ~/Projects/gateway &amp;&amp; code .
+</code></pre>
+
+<h1 id="配置开发工具">配置开发工具</h1>
+
+<h2 id="用梯子版">用梯子版</h2>
+
+<p>梯子有很多种，我这里拿其中一种已经没人使用的<a href="https://github.com/shadowsocks/shadowsocks" title="Removed according to regulations.">梯子</a>做例子，其它类型梯子也可以按照这个思路操作。该梯子是使用的socket5协议进行通讯的，而shell中只能使用http或https协议，这里需要一个socket5-&gt;http/https的转换（可以试试这个<a href="https://github.com/nybuxtsui/goproxy" title="goproxy">工具</a>我没用过供大家参考）。mac上可以使用一款叫<a href="https://github.com/shadowsocks/ShadowsocksX-NG" title="ShadowsocksX-NG">*X-NG</a>的客户端（&gt;= 1.7），默认就可以转换为http协议，操作方式点击图标找到<code class="highlighter-rouge">Copy HTTP Proxy Shell Export Line</code>然后贴到shell中，然后通过shell启动vs code即可。以我的配置为例：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">http_proxy</span><span class="o">=</span>http://0.0.0.0:1087<span class="p">;</span><span class="nb">export </span><span class="nv">https_proxy</span><span class="o">=</span>http://0.0.0.0:1087<span class="p">;</span>
+
+<span class="nb">cd</span> ~/Projects/gateway <span class="o">&amp;&amp;</span> code <span class="nb">.</span>
+</code></pre></div></div>
+
+<ul>
+  <li>打开vs code<code class="highlighter-rouge">扩展管理</code>搜索go，安装；</li>
+  <li>按下<code class="highlighter-rouge">shift + command + p</code>(Linux <code class="highlighter-rouge">ctrl + shift + p</code>)找到<code class="highlighter-rouge">Go: Install/Update Tools</code>；</li>
+  <li>等待安装完成即可</li>
+</ul>
+
+<h2 id="不用梯子版">不用梯子版</h2>
+
+<ul>
+  <li>打开vs code<code class="highlighter-rouge">扩展管理</code>搜索go，安装；</li>
+  <li>按下<code class="highlighter-rouge">shift + command + p</code>(Linux <code class="highlighter-rouge">ctrl + shift + p</code>)找到<code class="highlighter-rouge">Go: Install/Update Tools</code>；</li>
+  <li>打开<a href="https://golangtc.com/download/package" title="离线pkg包">网站</a>，将上一步列出的包一个个按教程手动下载并安装</li>
+</ul>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/14/carrierwave-with-s3-api/" data-toggle="tooltip" data-placement="top" title="Ruby on Rails文件存储整合S3 API">
+            Previous<br>
+            <span>Ruby on Rails文件存储整合S3 API</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
       
-<div class="post-preview">
-  <a href="/2018/08/16/vs-code-golang-dev/">
-    <h2 class="post-title">
-      Golang开发环境搭建（vs code）
-    </h2>
-    
-    <h3 class="post-subtitle">
-      带梯子和不带梯子两个版本
-    </h3>
-    
-    <div class="post-content-preview">
-      组织项目
-
-许多从其它语言转到golang的可能都会有一个疑问：GOPATH是什么？官方的wiki是这样说的：
-
-
-  The GOPATH environment variable specifies the location of your workspace.
-
-
-即GOPATH指向一个工作区，可类比到Linux的文件系统，系统只能访问根(/)下的文件，而根之上是什么就不是系统管理的范...
     </div>
-  </a>
-  <p class="post-meta">
-    Posted by Archfish on 2018-08-16
-  </p>
-</div>
-<hr>
-
-<div class="post-preview">
-  <a href="/2018/08/14/carrierwave-with-s3-api/">
-    <h2 class="post-title">
-      Ruby on Rails文件存储整合S3 API
-    </h2>
-    
-    <h3 class="post-subtitle">
-      存储对应用透明，存储升级扩容更灵活
-    </h3>
-    
-    <div class="post-content-preview">
-      在项目初期我们将一台服务器插满硬盘并提供NFS服务挂载到各业务服务器上。业务产生的文件分为两类，一类是涉及隐私的敏感文件，另一类是可公开访问的普通文件。普通文件需要对接CDN以降低服务器带宽压力。敏感文件只能在相应业务使用到时才能访问，通常是先加载到内存然后再嵌入页面或Base64编码后通过JSON返回给前端。
-
-在业务系统中使用CarrierWave作为文件上传管理组件，部分图片相关业务需...
-    </div>
-  </a>
-  <p class="post-meta">
-    Posted by Archfish on 2018-08-14
-  </p>
-</div>
-<hr>
-
-<div class="post-preview">
-  <a href="/2018/08/13/ruby-on-rails-containerization-01/">
-    <h2 class="post-title">
-      Ruby on Rails容器化实践（一）
-    </h2>
-    
-    <h3 class="post-subtitle">
-      多环境服务架构设计
-    </h3>
-    
-    <div class="post-content-preview">
-      为了方便新功能的开发和对接Reocar的Staging环境从1个变成了8个，其中7个是用于新需求测试和第三方渠道对接，还有一个是预发布环境。
-
-初代测试环境使用了基于KVM技术的虚拟机技术，对外需要占用一个公网IP。随着团队扩张，测试环境也跟着扩展到两个，这时公网IP的80端口已经被占用了，只能另外开端口进行服务。于是开启了测试环境的混沌时代，每增加一个环境就新增一组域名和端口，当增加到第三...
-    </div>
-  </a>
-  <p class="post-meta">
-    Posted by Archfish on 2018-08-13
-  </p>
-</div>
-<hr>
-
-<div class="post-preview">
-  <a href="/2018/08/12/rails-logger-wrap/">
-    <h2 class="post-title">
-      Rails日志组件封装
-    </h2>
-    
-    <h3 class="post-subtitle">
-      基于Ruby logger二次封装
-    </h3>
-    
-    <div class="post-content-preview">
-      在原始的单体应用中，日志通常直接输出到文件，然后由crontab中的定时任务做日志切分。再进一步，可能会有ELK系统收集分析。ELK只能对格式化的日志进行处理，对于无规则的日志只能作为字符串处理。Rails默认日志并不够简洁，对ELK来说处理难度略大。
-
-结构
-
-日志主要处理“谁在什么时间做了什么事情”的问题，下面就按这个思维来分析到底要怎么设计日志格式。
-
-谁
+  </div>
+</article>
 
 
-  服务组件可能会有很多...
-    </div>
-  </a>
-  <p class="post-meta">
-    Posted by Archfish on 2018-08-12
-  </p>
-</div>
-<hr>
-
-<div class="post-preview">
-  <a href="/2018/08/12/caching-with-rails/">
-    <h2 class="post-title">
-      Rails(4.1)中的缓存管理
-    </h2>
-    
-    <h3 class="post-subtitle">
-      复杂业务场景下的缓存淘汰方案
-    </h3>
-    
-    <div class="post-content-preview">
-      在rails中我们常用的有Rails#cache和IdentityCache这两种cache方式。在长期实践中发现了不少问题，于是我们研发了一个新的缓存组件CacheWorker。下面对这些组件进行大致介绍：
-
-IdentityCache
-
-这是一种ActiveRecord Caching组件，提供了若干读方法，通过after_commit回调对缓存进行淘汰，我们业务系统中使用的是Redis...
-    </div>
-  </a>
-  <p class="post-meta">
-    Posted by Archfish on 2018-08-12
-  </p>
-</div>
-<hr>
 
 
-<!-- Pager -->
 
 
-    </div>
 
-    <!-- Sidebar Container -->
-    <div class="
-        col-lg-3 col-lg-offset-0
-        col-md-3 col-md-offset-0
-        col-sm-12
-        col-xs-12
-        sidebar-container
-    ">
-      <!-- Featured Tags -->
-      
-
-      <!-- Short About -->
-      <section class="visible-md visible-lg">
-        <hr><h5><a href="/about/">ABOUT ME</a></h5>
-        <div class="short-about">
-          
-            <img src="/img/avatar-small.jpg" />
-          
-          
-            <p>For the next quantum leap<br>离开世界之前，一切都是过程</p>
-          
-        </div>
-      </section>
-
-      <!-- Friends Blog -->
-      
-      <h5>LINKS</h5>
-      <ul class="list-inline">
-        
-
-        
-
-        
-
-        
-
-        
-
-        
-        <li>
-          <a target="_blank" href="https://github.com/archfish">
-            <span class="fa-stack fa-lg clear">
-              <i class="fa fa-circle fa-stack-2x"></i>
-              <i class="fa fa-github fa-stack-1x fa-inverse"></i>
-            </span>
-          </a>
-        </li>
-        
-
-        
-      </ul>
-    </div>
-    
-	</div>
-</div>
 
 
   <!-- Footer -->

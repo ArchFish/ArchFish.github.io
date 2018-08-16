@@ -5,9 +5,86 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Tue, 14 Aug 2018 23:13:55 +0800</pubDate>
-    <lastBuildDate>Tue, 14 Aug 2018 23:13:55 +0800</lastBuildDate>
+    <pubDate>Thu, 16 Aug 2018 23:23:06 +0800</pubDate>
+    <lastBuildDate>Thu, 16 Aug 2018 23:23:06 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
+    
+      <item>
+        <title>Golang开发环境搭建（vs code）</title>
+        <description>&lt;h1 id=&quot;组织项目&quot;&gt;组织项目&lt;/h1&gt;
+
+&lt;p&gt;许多从其它语言转到golang的可能都会有一个疑问：GOPATH是什么？官方的&lt;a href=&quot;https://github.com/golang/go/wiki/SettingGOPATH&quot; title=&quot;SettingGOPATH&quot;&gt;wiki&lt;/a&gt;是这样说的：&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;The GOPATH environment variable specifies the location of your workspace.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;即GOPATH指向一个工作区，可类比到Linux的文件系统，系统只能访问根(/)下的文件，而根之上是什么就不是系统管理的范围了。回到go语言里，GOPATH下的代码才能被go管理，在这个路径之上的源码一概不理会。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;                                GOPATH
+              ____________________|____________________
+              |                   |                   |
+             src                 bin                 pkg
+        ______|_______        ____|____          _____|_____
+        |     |      |        |       |          |         |
+     GitHub Gopkg  Other        Tools           Platform Code
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;GOPATH的文件目录如上图所示，src下是以网站命名的文件夹，再往下才是项目目录。通过&lt;code class=&quot;highlighter-rouge&quot;&gt;go get&lt;/code&gt;拉下来的源码就是按这样的层级结构存放的，我们自己的项目也建议保持这样的结构。&lt;/p&gt;
+
+&lt;p&gt;以我们公司来讲，我们通常将RoR项目存放在&lt;code class=&quot;highlighter-rouge&quot;&gt;~/Projects/&lt;/code&gt;目录下，那有没有什么法子可以继续保持这样的组织方式还能满足go的组织风格呢？这时候就需要借助&lt;a href=&quot;https://www.ibm.com/developerworks/cn/linux/l-cn-hardandsymb-links/index.html&quot; title=&quot;理解 Linux 的硬链接与软链接&quot;&gt;软链&lt;/a&gt;了，通过软链我们在&lt;code class=&quot;highlighter-rouge&quot;&gt;~/Projects/&lt;/code&gt;下创建一个到GOPATH下相应项目的链接，这样就可以继续按照原来的风格管理go项目了。下图演示如何用vs code打开项目：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-log&quot;&gt;$ echo $GOPATH
+
+/Users/archfish/GoPath
+
+$ ls -lh ~/Projects
+
+lrwxr-xr-x   1 weihl  staff    51B 11 22  2017 gateway -&amp;gt; /Users/archfish/GoPath/src/github.com/fagongzi/gateway
+
+$ cd ~/Projects/gateway &amp;amp;&amp;amp; code .
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h1 id=&quot;配置开发工具&quot;&gt;配置开发工具&lt;/h1&gt;
+
+&lt;h2 id=&quot;用梯子版&quot;&gt;用梯子版&lt;/h2&gt;
+
+&lt;p&gt;梯子有很多种，我这里拿其中一种已经没人使用的&lt;a href=&quot;https://github.com/shadowsocks/shadowsocks&quot; title=&quot;Removed according to regulations.&quot;&gt;梯子&lt;/a&gt;做例子，其它类型梯子也可以按照这个思路操作。该梯子是使用的socket5协议进行通讯的，而shell中只能使用http或https协议，这里需要一个socket5-&amp;gt;http/https的转换（可以试试这个&lt;a href=&quot;https://github.com/nybuxtsui/goproxy&quot; title=&quot;goproxy&quot;&gt;工具&lt;/a&gt;我没用过供大家参考）。mac上可以使用一款叫&lt;a href=&quot;https://github.com/shadowsocks/ShadowsocksX-NG&quot; title=&quot;ShadowsocksX-NG&quot;&gt;*X-NG&lt;/a&gt;的客户端（&amp;gt;= 1.7），默认就可以转换为http协议，操作方式点击图标找到&lt;code class=&quot;highlighter-rouge&quot;&gt;Copy HTTP Proxy Shell Export Line&lt;/code&gt;然后贴到shell中，然后通过shell启动vs code即可。以我的配置为例：&lt;/p&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;http_proxy&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;http://0.0.0.0:1087&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;https_proxy&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;http://0.0.0.0:1087&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+&lt;span class=&quot;nb&quot;&gt;cd&lt;/span&gt; ~/Projects/gateway &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; code &lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;打开vs code&lt;code class=&quot;highlighter-rouge&quot;&gt;扩展管理&lt;/code&gt;搜索go，安装；&lt;/li&gt;
+  &lt;li&gt;按下&lt;code class=&quot;highlighter-rouge&quot;&gt;shift + command + p&lt;/code&gt;(Linux &lt;code class=&quot;highlighter-rouge&quot;&gt;ctrl + shift + p&lt;/code&gt;)找到&lt;code class=&quot;highlighter-rouge&quot;&gt;Go: Install/Update Tools&lt;/code&gt;；&lt;/li&gt;
+  &lt;li&gt;等待安装完成即可&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;不用梯子版&quot;&gt;不用梯子版&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;打开vs code&lt;code class=&quot;highlighter-rouge&quot;&gt;扩展管理&lt;/code&gt;搜索go，安装；&lt;/li&gt;
+  &lt;li&gt;按下&lt;code class=&quot;highlighter-rouge&quot;&gt;shift + command + p&lt;/code&gt;(Linux &lt;code class=&quot;highlighter-rouge&quot;&gt;ctrl + shift + p&lt;/code&gt;)找到&lt;code class=&quot;highlighter-rouge&quot;&gt;Go: Install/Update Tools&lt;/code&gt;；&lt;/li&gt;
+  &lt;li&gt;打开&lt;a href=&quot;https://golangtc.com/download/package&quot; title=&quot;离线pkg包&quot;&gt;网站&lt;/a&gt;，将上一步列出的包一个个按教程手动下载并安装&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 16 Aug 2018 21:57:18 +0800</pubDate>
+        <link>https://archfish.top/2018/08/16/vs-code-golang-dev/</link>
+        <guid isPermaLink="true">https://archfish.top/2018/08/16/vs-code-golang-dev/</guid>
+        
+        <category>Golang</category>
+        
+        <category>vs code</category>
+        
+        
+      </item>
     
       <item>
         <title>Ruby on Rails文件存储整合S3 API</title>
