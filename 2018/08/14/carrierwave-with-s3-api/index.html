@@ -255,9 +255,10 @@
   <span class="c1"># 该参数用于设置图片访问域名</span>
   <span class="c1"># config.asset_host = File.join(endpoint, bucket)</span>
 
-  <span class="n">config</span><span class="p">.</span><span class="nf">aws_authenticated_url_expiration</span> <span class="o">=</span> <span class="mi">1</span><span class="p">.</span><span class="nf">days</span><span class="p">.</span><span class="nf">to_i</span>
+  <span class="c1"># 隐私文件开放时间，过期则返回403</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">aws_authenticated_url_expiration</span> <span class="o">=</span> <span class="mi">30</span><span class="p">.</span><span class="nf">minute</span><span class="p">.</span><span class="nf">to_i</span>
+
   <span class="n">config</span><span class="p">.</span><span class="nf">aws_attributes</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1"># expires: 1.week.from_now.httpdate,</span>
     <span class="ss">cache_control: </span><span class="s1">'max-age=604800'</span>
   <span class="p">}</span>
 

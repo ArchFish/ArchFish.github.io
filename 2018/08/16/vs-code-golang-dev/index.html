@@ -262,6 +262,34 @@ $ cd ~/Projects/gateway &amp;&amp; code .
   <li>打开<a href="https://golangtc.com/download/package" title="离线pkg包">网站</a>，将上一步列出的包一个个按教程手动下载并安装</li>
 </ul>
 
+<h1 id="额外配置">额外配置</h1>
+
+<h2 id="空白处理">空白处理</h2>
+
+<p>通过简单的配置可以让编辑器帮我们处理一些编辑任务：</p>
+
+<ul>
+  <li>文件最后保留一个空行</li>
+  <li>删除文件最后多余空行</li>
+  <li>清理每行结尾空格制表符等</li>
+</ul>
+
+<pre><code class="language-JSON">{
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true
+}
+</code></pre>
+
+<h2 id="golang-19-alias支持">golang 1.9 alias支持</h2>
+
+<p>通过右键选择<code class="highlighter-rouge">Go to Definition</code>和<code class="highlighter-rouge">Peek Definition</code>在1.9版本后可能会无法正确跳转，这个其实是个<a href="https://github.com/Microsoft/vscode-go/issues/1261" title="go-to-definition doesn't work in go 1.9 with type aliasing.">Bug</a>，如下配置即可：</p>
+
+<pre><code class="language-JSON">{
+  "go.docsTool": "gogetdoc"
+}
+</code></pre>
+
 <hr />
 
 <p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>

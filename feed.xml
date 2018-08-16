@@ -5,8 +5,8 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 16 Aug 2018 23:23:06 +0800</pubDate>
-    <lastBuildDate>Thu, 16 Aug 2018 23:23:06 +0800</lastBuildDate>
+    <pubDate>Thu, 16 Aug 2018 23:40:00 +0800</pubDate>
+    <lastBuildDate>Thu, 16 Aug 2018 23:40:00 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
     
       <item>
@@ -69,6 +69,34 @@ $ cd ~/Projects/gateway &amp;amp;&amp;amp; code .
   &lt;li&gt;按下&lt;code class=&quot;highlighter-rouge&quot;&gt;shift + command + p&lt;/code&gt;(Linux &lt;code class=&quot;highlighter-rouge&quot;&gt;ctrl + shift + p&lt;/code&gt;)找到&lt;code class=&quot;highlighter-rouge&quot;&gt;Go: Install/Update Tools&lt;/code&gt;；&lt;/li&gt;
   &lt;li&gt;打开&lt;a href=&quot;https://golangtc.com/download/package&quot; title=&quot;离线pkg包&quot;&gt;网站&lt;/a&gt;，将上一步列出的包一个个按教程手动下载并安装&lt;/li&gt;
 &lt;/ul&gt;
+
+&lt;h1 id=&quot;额外配置&quot;&gt;额外配置&lt;/h1&gt;
+
+&lt;h2 id=&quot;空白处理&quot;&gt;空白处理&lt;/h2&gt;
+
+&lt;p&gt;通过简单的配置可以让编辑器帮我们处理一些编辑任务：&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;文件最后保留一个空行&lt;/li&gt;
+  &lt;li&gt;删除文件最后多余空行&lt;/li&gt;
+  &lt;li&gt;清理每行结尾空格制表符等&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-JSON&quot;&gt;{
+  &quot;files.insertFinalNewline&quot;: true,
+  &quot;files.trimFinalNewlines&quot;: true,
+  &quot;files.trimTrailingWhitespace&quot;: true
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;golang-19-alias支持&quot;&gt;golang 1.9 alias支持&lt;/h2&gt;
+
+&lt;p&gt;通过右键选择&lt;code class=&quot;highlighter-rouge&quot;&gt;Go to Definition&lt;/code&gt;和&lt;code class=&quot;highlighter-rouge&quot;&gt;Peek Definition&lt;/code&gt;在1.9版本后可能会无法正确跳转，这个其实是个&lt;a href=&quot;https://github.com/Microsoft/vscode-go/issues/1261&quot; title=&quot;go-to-definition doesn't work in go 1.9 with type aliasing.&quot;&gt;Bug&lt;/a&gt;，如下配置即可：&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-JSON&quot;&gt;{
+  &quot;go.docsTool&quot;: &quot;gogetdoc&quot;
+}
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;hr /&gt;
 
@@ -136,9 +164,10 @@ $ cd ~/Projects/gateway &amp;amp;&amp;amp; code .
   &lt;span class=&quot;c1&quot;&gt;# 该参数用于设置图片访问域名&lt;/span&gt;
   &lt;span class=&quot;c1&quot;&gt;# config.asset_host = File.join(endpoint, bucket)&lt;/span&gt;
 
-  &lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;aws_authenticated_url_expiration&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;to_i&lt;/span&gt;
+  &lt;span class=&quot;c1&quot;&gt;# 隐私文件开放时间，过期则返回403&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;aws_authenticated_url_expiration&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;30&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;minute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;to_i&lt;/span&gt;
+
   &lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nf&quot;&gt;aws_attributes&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;c1&quot;&gt;# expires: 1.week.from_now.httpdate,&lt;/span&gt;
     &lt;span class=&quot;ss&quot;&gt;cache_control: &lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'max-age=604800'&lt;/span&gt;
   &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
 
