@@ -178,6 +178,30 @@
         ">
       
 <div class="post-preview">
+  <a href="/2018/08/20/ruby-on-rails-containerization-02/">
+    <h2 class="post-title">
+      Ruby on Rails容器化实践（二）
+    </h2>
+    
+    <h3 class="post-subtitle">
+      基于Alpine的最小Docker镜像打包脚本
+    </h3>
+    
+    <div class="post-content-preview">
+      镜像的大小对容器运行资源占用并没有什么太大影响，多层次的镜像结构使得相同layout在每台docker主机上都是唯一一份，即Docker Images共享相同layout。选择alpine只是因为它易于使用且相关软件包都比较新。本文使用三个Dockerfile来分别处理Rails打包的三个阶段。
+
+运行时镜像
+
+即把Rails编译完成后的文件拷贝到该镜像上应当可以正常运行，无依赖问题。这里首...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2018-08-20
+  </p>
+</div>
+<hr>
+
+<div class="post-preview">
   <a href="/2018/08/16/vs-code-golang-dev/">
     <h2 class="post-title">
       Golang开发环境搭建（vs code）

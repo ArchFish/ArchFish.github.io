@@ -273,7 +273,9 @@
 <span class="k">end</span>
 </code></pre></div></div>
 
-<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">BaseUploader</span> <span class="o">&lt;</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">Uploader</span><span class="o">::</span><span class="no">Base</span>
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># base_uploader.rb</span>
+
+<span class="k">class</span> <span class="nc">BaseUploader</span> <span class="o">&lt;</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">Uploader</span><span class="o">::</span><span class="no">Base</span>
   <span class="kp">include</span> <span class="no">CarrierWave</span><span class="o">::</span><span class="no">MiniMagick</span>
   <span class="n">storage</span> <span class="ss">:aws</span>
 
@@ -316,6 +318,128 @@
 </code></pre></div></div>
 
 <p>经过上面的修改之后相同的接口就能直接适配S3存储，同时隐私文件夹通过设置合理的expires即可限制资源的访问。</p>
+
+<h1 id="生产环境">生产环境</h1>
+
+<p>通过Nginx将内部服务暴露到公网中，这时你会遇到一个<a href="https://tracker.ceph.com/issues/23149" title="Aws::S3::Errors::SignatureDoesNotMatch">bug</a>，还有这个<a href="https://trac.nginx.org/nginx/ticket/1293" title="nginx http proxy stops sending request data after first byte of server response is received">bug</a>。所以在业务需要处理1XX状态码时不宜使用nginx作为反向代理。</p>
+
+<p>整个流程搞定以后我也进行了反思：</p>
+
+<ul>
+  <li>对于文件上传，通过nginx会增加不必要的代理层；</li>
+  <li>在这个需求中我只希望通过外网可以访问文件而不需要外网（通过Nginx代理）直接上传文件；</li>
+  <li>文件上传使用内部网络（IP+端口方式）可以减少DNS环节，虽然可以设置内部DNS为内部地址，提高稳定性；</li>
+</ul>
+
+<p>于是改变思路，默认endpoint还是内网的IP+PORT方式，在获取URL时，创建一个新的client用于对文件URL进行签名，最终的代码如下：</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># config/initializers/carrierwave.rb</span>
+
+<span class="no">CarrierWave</span><span class="p">.</span><span class="nf">configure</span> <span class="k">do</span> <span class="o">|</span><span class="n">config</span><span class="o">|</span>
+
+  <span class="o">...</span>
+
+  <span class="c1"># 设置CDN域名+bucket名</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">asset_host</span> <span class="o">=</span> <span class="no">File</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="no">CDN_DOMAIN</span><span class="p">,</span> <span class="n">bucket</span><span class="p">)</span>
+
+  <span class="o">...</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># base_uploader.rb</span>
+
+<span class="c1"># 获取图片外部访问地址，有CDN可用时使用CDN</span>
+<span class="k">def</span> <span class="nf">external_url</span>
+  <span class="k">return</span> <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">blank?</span>
+
+  <span class="c1"># 私有文件会带上一些鉴权参数，不能对其进行修改</span>
+  <span class="k">return</span> <span class="n">authenticated_url</span> <span class="k">unless</span> <span class="n">public_file?</span>
+
+  <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:updated_at</span><span class="p">)</span> <span class="o">||</span> <span class="nb">self</span><span class="p">.</span><span class="nf">model</span><span class="p">.</span><span class="nf">try</span><span class="p">(</span><span class="ss">:created_at</span><span class="p">)</span> <span class="o">||</span> <span class="no">Time</span><span class="p">.</span><span class="nf">current</span><span class="p">).</span><span class="nf">tv_sec</span>
+  <span class="n">s</span> <span class="o">=</span> <span class="s2">"?t=</span><span class="si">#{</span><span class="n">s</span><span class="si">}</span><span class="s2">"</span>
+
+  <span class="n">url_</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">url</span>
+  <span class="c1"># 自定义 asset_host 时不做替换</span>
+  <span class="k">if</span> <span class="nb">self</span><span class="p">.</span><span class="nf">asset_host</span><span class="p">.</span><span class="nf">blank?</span>
+    <span class="n">url_</span> <span class="o">=</span> <span class="n">url_</span><span class="p">.</span><span class="nf">sub</span><span class="p">(</span><span class="n">backend_domain</span><span class="p">,</span> <span class="n">cdn_domain</span><span class="p">)</span>
+  <span class="k">end</span>
+  <span class="n">url_</span> <span class="o">+</span> <span class="n">s</span>
+<span class="k">end</span>
+
+<span class="c1"># 用于修改aws endpoint到图片服务器</span>
+<span class="k">def</span> <span class="nf">authenticated_url</span>
+  <span class="c1"># 不能修改 self.aws_credentials 的内容，否则会影响之后的文件上传操作</span>
+  <span class="n">options</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="nf">aws_credentials</span><span class="p">.</span><span class="nf">merge</span><span class="p">(</span><span class="ss">endpoint: </span><span class="no">APP_CONFIG</span><span class="p">[</span><span class="s1">'ceph_image_gateway'</span><span class="p">])</span>
+  <span class="c1"># 新建一个bucket客户端，用于访问对象</span>
+  <span class="n">bucket</span> <span class="o">=</span> <span class="no">Aws</span><span class="o">::</span><span class="no">S3</span><span class="o">::</span><span class="no">Bucket</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="nf">aws_bucket</span><span class="p">,</span> <span class="n">options</span><span class="p">)</span>
+  <span class="c1"># 预签名URL，加上验签信息</span>
+  <span class="n">bucket</span><span class="p">.</span><span class="nf">object</span><span class="p">(</span><span class="n">path</span><span class="p">).</span><span class="nf">presigned_url</span><span class="p">(</span><span class="ss">:get</span><span class="p">,</span> <span class="nb">self</span><span class="p">.</span><span class="nf">file</span><span class="p">.</span><span class="nf">aws_options</span><span class="p">.</span><span class="nf">expiration_options</span><span class="p">)</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h1 id="附录">附录</h1>
+
+<p>附上我排查bug的流程：</p>
+
+<ul>
+  <li>打开ceph rgw的<code class="highlighter-rouge">debug 20</code>模式；</li>
+  <li>关闭osd日志（这里有很多集群消息）；</li>
+  <li>使用s3cmd工具上传文件并将日志拷贝出来（s3cmd不使用100状态码，所以经过nginx以后还是能正常上传文件）；</li>
+  <li>使用s3 ruby sdk上传文件，并将日志拷贝出来</li>
+  <li>比对两次日志即可发现sdk里使用的是100状态实现首次请求不带任何body只验证权限和路径等信息，<a href="https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/API/RESTObjectPUT.html" title="PUT Object">参考S3实现</a></li>
+</ul>
+
+<pre><code class="language-logger"># s3cmd
+
+2018-08-20 11:43:05.426 7f789febc700 20 CONTENT_LENGTH=392424
+2018-08-20 11:43:05.426 7f789febc700 20 CONTENT_TYPE=image/jpeg
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_ACCEPT_ENCODING=identity
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_AUTHORIZATION=AWS4-HMAC-SHA256 Credential=QZPWZQQ4PCUVXKZA1CK4/20180820/us-east-1/s3/aws4_request,SignedHeaders=content-length;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-meta-s3cmd-attrs;x-amz-storage-class,Signature=7dad3193636d4d3c66b2a06877c135d50834fbb9f7a94c26c3c8a198cd81a14e
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_HOST=my.local.lan
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_VERSION=1.1
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_AMZ_CONTENT_SHA256=867a5e890d8e8b156d16d33d8bbc135fd4d3b8f73844fb2d2e69df668fc4447c
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_AMZ_DATE=20180820T034305Z
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_AMZ_META_S3CMD_ATTRS=atime:1534736585/ctime:1532484245/gid:20/gname:staff/md5:cfef3b9dac46df5d717e32ca33d3e7da/mode:33188/mtime:1532412861/uid:501/uname:weihl
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_AMZ_STORAGE_CLASS=STANDARD
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_FORWARDED_BY=127.0.0.1:80
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_FORWARDED_FOR=127.0.0.1
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_FORWARDED_PROTO=http
+2018-08-20 11:43:05.426 7f789febc700 20 HTTP_X_REAL_IP=127.0.0.1
+2018-08-20 11:43:05.426 7f789febc700 20 REMOTE_ADDR=192.168.15.58
+2018-08-20 11:43:05.426 7f789febc700 20 REQUEST_METHOD=PUT
+2018-08-20 11:43:05.426 7f789febc700 20 REQUEST_URI=/reocar/reocar.jpg
+2018-08-20 11:43:05.426 7f789febc700 20 SCRIPT_URI=/reocar/reocar.jpg
+2018-08-20 11:43:05.426 7f789febc700 20 SERVER_PORT=7480
+2018-08-20 11:43:05.426 7f789febc700  1 ====== starting new request req=0x7f789feb3830 =====
+...
+</code></pre>
+
+<pre><code class="language-logger"># ruby sdk
+
+2018-08-20 11:45:14.781 7f789febc700 20 CONTENT_LENGTH=392424
+2018-08-20 11:45:14.781 7f789febc700 20 CONTENT_TYPE=
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_ACCEPT=*/*
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_ACCEPT_ENCODING=
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_AUTHORIZATION=AWS4-HMAC-SHA256 Credential=QZPWZQQ4PCUVXKZA1CK4/20180820/us-east-1/s3/aws4_request, SignedHeaders=content-md5;expect;host;user-agent;x-amz-content-sha256;x-amz-date, Signature=6186f7dd9c9a33be40a91afd1ce0a9c4ce5cb8b830962764cebef6143d4913a3
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_CONTENT_MD5=z+87naxG311xfjLKM9Pn2g==
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_EXPECT=100-continue
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_HOST=my.local.lan
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_USER_AGENT=aws-sdk-ruby3/3.23.0 ruby/2.1.9 x86_64-darwin17.0 aws-sdk-s3/1.17.0
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_VERSION=1.1
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_AMZ_CONTENT_SHA256=867a5e890d8e8b156d16d33d8bbc135fd4d3b8f73844fb2d2e69df668fc4447c
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_AMZ_DATE=20180820T034514Z
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_FORWARDED_BY=127.0.0.1:80
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_FORWARDED_FOR=127.0.0.1
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_FORWARDED_PROTO=http
+2018-08-20 11:45:14.781 7f789febc700 20 HTTP_X_REAL_IP=127.0.0.1
+2018-08-20 11:45:14.781 7f789febc700 20 REMOTE_ADDR=192.168.15.58
+2018-08-20 11:45:14.781 7f789febc700 20 REQUEST_METHOD=PUT
+2018-08-20 11:45:14.781 7f789febc700 20 REQUEST_URI=/reocar/reocar.jpg
+2018-08-20 11:45:14.781 7f789febc700 20 SCRIPT_URI=/reocar/reocar.jpg
+2018-08-20 11:45:14.781 7f789febc700 20 SERVER_PORT=7480
+2018-08-20 11:45:14.781 7f789febc700  1 ====== starting new request req=0x7f789feb3830 =====
+...
+</code></pre>
 
 <hr />
 

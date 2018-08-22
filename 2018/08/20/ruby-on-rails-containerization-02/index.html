@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="google-site-verification" content="HUq9zIqmlLMHO-Ns9tEu6drasagknezrT2z0ispbmA8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Ruby on Rails容器化实践（二） - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2018/08/20/ruby-on-rails-containerization-02/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/make-docker-image.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/make-docker-image.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#Docker" title="Docker">Docker</a>
+            
+            <a class="tag" href="/tags/#Kubernetes" title="Kubernetes">Kubernetes</a>
+            
+          </div>
+          <h1>Ruby on Rails容器化实践（二）</h1>
+          
+          
+          <h2 class="subheading">基于Alpine的最小Docker镜像打包脚本</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2018-08-20
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>镜像的大小对容器运行资源占用并没有什么太大影响，多层次的镜像结构使得相同layout在每台docker主机上都是唯一一份，即Docker Images共享相同layout。选择<a href="https://alpinelinux.org/" title="alpine">alpine</a>只是因为它易于使用且相关软件包都比较新。本文使用三个Dockerfile来分别处理Rails打包的三个阶段。</p>
+
+<h1 id="运行时镜像">运行时镜像</h1>
+
+<p>即把Rails编译完成后的文件拷贝到该镜像上应当可以正常运行，无依赖问题。这里首先将Alpine构建为满足运行条件的镜像，然后将运行状态的Rails所依赖的包进行整理。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># ps -ef | grep puma</span>
+
+501 57757   868   0  4:41下午 ttys000    0:06.76 puma 3.11.0 <span class="o">(</span>tcp://0.0.0.0:3000<span class="o">)</span> <span class="o">[</span>reocar_store]
+501 60614 57757   0 10:16下午 ttys000    0:00.46 puma: cluster worker 0: 57757 <span class="o">[</span>reocar_store]
+
+<span class="c"># lsof -p 60614 | grep .so | grep -v ruby</span>
+ruby    30119 rails  mem       REG              252,0    27000   45613481 /lib/x86_64-linux-gnu/libnss_dns-2.23.so
+ruby    30119 rails  mem       REG              252,0    89696   45613586 /lib/x86_64-linux-gnu/libgcc_s.so.1
+</code></pre></div></div>
+
+<p>将库文件放到<a href="https://pkgs.alpinelinux.org/contents" title="alpine contents search">alpine包查询</a>里查出相应软件包，这样我们的运行时镜像就可以用下面的脚本进行打包了：</p>
+
+<pre><code class="language-Dockerfile"># dockerfiles/base_image
+
+ARG FROM_IMAGE=ruby:2.3-alpine
+
+FROM $FROM_IMAGE
+LABEL maintainer=$MAINTAINER
+
+ENV GEM_HOME /usr/local/bundle
+ENV BUNDLE_PATH="$GEM_HOME" \
+	BUNDLE_SILENCE_ROOT_WARNING=1 \
+	BUNDLE_APP_CONFIG="$GEM_HOME"
+ENV PATH $GEM_HOME/bin:$BUNDLE_PATH/gems/bin:$PATH
+
+RUN echo 'gem: --no-document' &gt;&gt; /usr/local/etc/gemrc \
+    &amp;&amp; gem source --remove https://rubygems.org/ --add https://mirrors.tuna.tsinghua.edu.cn/rubygems/ \
+    &amp;&amp; gem install rubygems-update \
+    &amp;&amp; update_rubygems \
+    &amp;&amp; gem update --system \
+    &amp;&amp; rm -rf /root/.gem/specs/* \
+    &amp;&amp; rm -rf $GEM_HOME/doc/* \
+    &amp;&amp; rm -rf $GEM_HOME/cache/* \
+    &amp;&amp; mv /etc/apk/repositories /etc/apk/repositories-bak \
+    &amp;&amp; { \
+        echo 'https://mirrors.aliyun.com/alpine/v3.7/main'; \
+        echo 'https://mirrors.aliyun.com/alpine/v3.7/community'; \
+        echo '@edge https://mirrors.aliyun.com/alpine/edge/main'; \
+        echo '@testing https://mirrors.aliyun.com/alpine/edge/testing'; \
+        echo '@community https://mirrors.aliyun.com/alpine/edge/community'; \
+    } &gt;&gt; /etc/apk/repositories \
+    &amp;&amp; apk add --update --no-cache \
+        libgcc libstdc++ freetds libsasl libldap libpq musl \
+        file tzdata imagemagick nodejs ghostscript-fonts busybox-suid \
+    &amp;&amp; ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+
+CMD [ "irb" ]
+</code></pre>
+
+<p>因为我们有新旧系统共同使用，所以安装了mssql server的相关驱动。</p>
+
+<h1 id="编译时包">编译时包</h1>
+
+<pre><code class="language-Dockerfile"># dockerfiles/builder_image
+
+ARG FROM_IMAGE
+
+FROM $FROM_IMAGE
+
+ARG APP_ROOT
+ARG BUNDLE_WITHOUT
+
+ENV RAILS_ENV=production
+ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
+
+RUN apk add --update --no-cache \
+        openssh-client build-base git \
+        freetds-dev postgresql-dev \
+        postgis@testing libressl2.7-libcrypto@edge json-c@edge
+
+ADD ssh /root/.ssh
+
+RUN chmod 700 /root/.ssh \
+    &amp;&amp; chmod 600 /root/.ssh/id_rsa* \
+    &amp;&amp; ssh-keyscan my.git.server.com &gt; ~/.ssh/known_hosts
+
+WORKDIR ${APP_ROOT}
+
+ADD Gemfile* ./
+
+RUN bundle config --global frozen 1 \
+    &amp;&amp; bundle install -j4 --retry 3 \
+    &amp;&amp; find /usr/local/bundle/gems/ -name wkhtmltopdf_darwin* -delete \
+    &amp;&amp; find /usr/local/bundle/gems/ -name wkhtmltopdf_linux_x86 -delete \
+    &amp;&amp; rm -rf Gemfile*
+
+CMD [ "irb" ]
+</code></pre>
+
+<p>这里将开发组件全部安装好，并配置好ssh用于拉取项目源码。同时缓存Gemfile内使用的包，这样每次可以省下不少时间。</p>
+
+<h1 id="发行包">发行包</h1>
+
+<pre><code class="language-Dockerfile"># dockerfiles/release
+
+ARG BUILDER_IMAGE
+ARG RUNTIME_IMAGE
+
+FROM $BUILDER_IMAGE as Builder
+
+ARG FOLDERS_TO_REMOVE
+ARG BUNDLE_WITHOUT
+ARG RAILS_ENV
+ARG NODE_ENV
+ARG APP_ROOT
+
+ENV BUNDLE_WITHOUT ${BUNDLE_WITHOUT}
+ENV RAILS_ENV ${RAILS_ENV}
+ENV NODE_ENV ${NODE_ENV}
+ENV SECRET_KEY_BASE=foo
+
+WORKDIR ${APP_ROOT}
+
+COPY ./ ./
+
+RUN mkdir -p ~/.ssh \
+    &amp;&amp; chmod 700 ~/.ssh \
+    &amp;&amp; cp ssh/* ~/.ssh/ \
+    &amp;&amp; chmod 600 ~/.ssh/id_rsa* \
+    &amp;&amp; ssh-keyscan my.git.server.com &gt; ~/.ssh/known_hosts
+
+RUN mkdir -p tmp/pids tmp/sockets \
+    &amp;&amp; bundle config --global frozen 1 \
+    &amp;&amp; bundle install -j4 --retry 3 \
+    &amp;&amp; bundle exec rake assets:clean[0] \
+    &amp;&amp; bundle exec rake assets:precompile \
+    &amp;&amp; bundle exec rake tmp:clear \
+    &amp;&amp; bundle exec rake log:clear \
+    &amp;&amp; rm -rf /usr/local/bundle/cache/*.gem \
+    &amp;&amp; find /usr/local/bundle/gems/ -name "*.c" -delete \
+    &amp;&amp; find /usr/local/bundle/gems/ -name "*.o" -delete \
+    &amp;&amp; rm -rf $FOLDERS_TO_REMOVE
+
+FROM $RUNTIME_IMAGE
+
+ARG EXECJS_RUNTIME
+ARG APP_ROOT
+ARG RAILS_ENV
+ARG APP_VERSION
+
+RUN addgroup -g 1001 -S rails \
+    &amp;&amp; adduser -u 1001 -S rails -G rails
+
+USER rails
+
+COPY --from=Builder /usr/local/bundle/ /usr/local/bundle/
+COPY --from=Builder --chown=rails:rails ${APP_ROOT} ${APP_ROOT}
+
+ENV RAILS_ENV=${RAILS_ENV} \
+    RAILS_LOG_TO_STDOUT=true \
+    RAILS_SERVE_STATIC_FILES=true \
+    EXECJS_RUNTIME=$EXECJS_RUNTIME \
+    APP_VERSION=$APP_VERSION \
+    SECRET_KEY_BASE=7dea1************************************************8257dfe7fc
+
+WORKDIR ${APP_ROOT}
+
+EXPOSE 3000
+
+ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]
+CMD [ "server" ]
+</code></pre>
+
+<p>这里有两个部分，第一部分负责使用「编译时包」对源码进行编译，编译完成后将多余文件清理干净，第二部分直接将bundler的安装目录和项目编译后的文件拷贝到「运行时镜像」，并设置相关环境变量即可。</p>
+
+<h1 id="makefile">Makefile</h1>
+
+<p>每次靠人力去维护这些脚本，并组合使用非常麻烦，需要写一大堆的使用文档才能让后来的人去使用。这里我们引入<a href="http://www.ruanyifeng.com/blog/2015/02/make.html" title="Make 命令教程">Makefile</a>来帮我组织这些命令和脚本。这个脚本应当达到以下目的</p>
+
+<ul>
+  <li>镜像打包以后不再携带git相关信息，所以需要获取当前的版本，版本由<code class="highlighter-rouge">项目名+分支名+当前提交号组成</code>，这样方便查看当前代码是否正确</li>
+  <li>各阶段生成镜像名应当在编译时统一指定，这样可以使用已经生成的镜像进行操作，可以节省一大堆时间</li>
+  <li>指定项目运行目录，将目录从dockerfile中解放出来，便于维护</li>
+  <li>各种环境变量也应当由Makefile进行控制，可以灵活修改</li>
+  <li>最终生成的镜像tag应当能定制，方便与CI/CD工具整合</li>
+</ul>
+
+<pre><code class="language-Makefile">NAME				= $(shell basename -s . `git rev-parse --show-toplevel`)
+GIT_COMMIT			= $(shell git rev-parse --short HEAD)
+GIT_BRANCH			= $(shell git rev-parse --abbrev-ref HEAD)
+DOCKER_BASE_NAME	= reocar-ruby-2.3:alpine3.7
+DOCKER_BUILDER_NAME	= reocar-ruby-2.3:builder
+APP_ROOT			= /opt/$(NAME)
+CLEAN_IMAGES		:=
+BUILD_TAG			:= $(tag)
+BUNDLE_WITHOUT		:= "development:test"
+
+# check if base images exist
+ifeq ("$(shell docker images -q $(DOCKER_BASE_NAME) 2&gt; /dev/null)","")
+	BUILD_BASE_IMAGE	= docker build -t $(DOCKER_BASE_NAME) -f ./dockerfiles/base_image .
+else
+	CLEAN_IMAGES		:= $(CLEAN_IMAGES) $(DOCKER_BASE_NAME)
+	BUILD_BASE_IMAGE	=
+endif
+
+# check if builder images exist
+ifeq ("$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&gt; /dev/null)","")
+	BUILD_BUILDER_IMAGE	= docker build --build-arg FROM_IMAGE="$(DOCKER_BASE_NAME)" \
+							--build-arg APP_ROOT="$(APP_ROOT)" \
+							--build-arg BUNDLE_WITHOUT=$(BUNDLE_WITHOUT) \
+							-t $(DOCKER_BUILDER_NAME) \
+							-f ./dockerfiles/builder_image .
+else
+	CLEAN_IMAGES		:= $(CLEAN_IMAGES) $(DOCKER_BUILDER_NAME)
+	BUILD_BUILDER_IMAGE	=
+endif
+
+CLEAN_IMAGES	:= $(shell echo $(CLEAN_IMAGES) | xargs)
+
+ifeq ("$(CLEAN_IMAGES)","")
+	CLEAN_DOCKER_IMAGES	=
+else
+	CLEAN_DOCKER_IMAGES	= docker rmi $(CLEAN_IMAGES)
+endif
+
+ifeq ("$(BUILD_TAG)","")
+	BUILD_TAG	:= $(shell date +%Y%m%d%H%M)
+endif
+
+.PHONY: docker base builder cpssh clean
+.DEFAULT_GOAL := docker
+
+docker: base builder; $(info ======== build $(NAME) release image:)
+	docker build --build-arg RUNTIME_IMAGE="$(DOCKER_BASE_NAME)" \
+				--build-arg BUILDER_IMAGE="$(DOCKER_BUILDER_NAME)" \
+				--build-arg FOLDERS_TO_REMOVE="spec node_modules app/assets vendor/assets lib/assets" \
+				--build-arg BUNDLE_WITHOUT=$(BUNDLE_WITHOUT) \
+				--build-arg EXECJS_RUNTIME=Disabled \
+				--build-arg RAILS_ENV=production \
+				--build-arg NODE_ENV=production \
+				--build-arg APP_ROOT="$(APP_ROOT)" \
+				--build-arg APP_VERSION="$(NAME),$(GIT_BRANCH),$(GIT_COMMIT)" \
+				-t $(NAME):$(BUILD_TAG) \
+				--rm -f ./dockerfiles/release .
+
+base: ; $(info ======== build $(NAME) runtime image:)
+	@$(BUILD_BASE_IMAGE)
+
+builder: cpssh; $(info ======== build $(NAME) compile image:)
+	@$(BUILD_BUILDER_IMAGE)
+
+cpssh:
+	@cp -R ~/.ssh ssh
+
+clean: ; $(info ======== clean docker images: $(CLEAN_IMAGES))
+	@$(CLEAN_DOCKER_IMAGES)
+	@rm -rf ssh
+
+</code></pre>
+
+<p>使用方法：在项目根目录敲下<code class="highlighter-rouge">make</code>即可，如果需要清理缓存镜像，使用<code class="highlighter-rouge">make clean</code></p>
+
+<p>注意！！</p>
+
+<p>请不要执行 <code class="highlighter-rouge">/bin/sh Makefile</code> 命令，这样既不是Makefile的正确用法，也无法预测会发生什么事情。<a href="https://github.com/fagongzi/gateway/issues/93" title="什么鬼，运行了根目录下的Makefile，自动删除了我好多文件夹，包括了根目录的文件">从前有个人执行了这个命令，然后他再也没出现过了- -||</a></p>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/16/vs-code-golang-dev/" data-toggle="tooltip" data-placement="top" title="Golang开发环境搭建（vs code）">
+            Previous<br>
+            <span>Golang开发环境搭建（vs code）</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2018
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
