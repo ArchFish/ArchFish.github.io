@@ -348,7 +348,8 @@ ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/loc
 
 
 <span class="c"># check if base images exist
-</span><span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BASE_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+</span>
+<span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BASE_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
 	<span class="nv">BUILD_BASE_IMAGE</span>	<span class="o">=</span> docker build <span class="nt">-t</span> <span class="nv">$(DOCKER_BASE_NAME)</span> <span class="nt">-f</span> ./dockerfiles/base_image .
 <span class="err">else</span>
 	<span class="nv">CLEAN_IMAGES</span>		<span class="o">:=</span> <span class="nv">$(CLEAN_IMAGES)</span> <span class="nv">$(DOCKER_BASE_NAME)</span>
@@ -356,7 +357,8 @@ ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/loc
 <span class="err">endif</span>
 
 <span class="c"># check if builder images exist
-</span><span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+</span>
+<span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
 	<span class="nv">BUILD_BUILDER_IMAGE</span>	<span class="o">=</span> docker build <span class="nt">--build-arg</span> <span class="nv">FROM_IMAGE</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(DOCKER_BASE_NAME)</span><span class="s2">"</span> <span class="se">\</span>
 							<span class="nt">--build-arg</span> <span class="nv">APP_ROOT</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(APP_ROOT)</span><span class="s2">"</span> <span class="se">\</span>
 							<span class="nt">--build-arg</span> <span class="nv">BUNDLE_WITHOUT</span><span class="o">=</span><span class="nv">$(BUNDLE_WITHOUT)</span> <span class="se">\</span>

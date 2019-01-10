@@ -5,8 +5,8 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 10 Jan 2019 16:01:29 +0800</pubDate>
-    <lastBuildDate>Thu, 10 Jan 2019 16:01:29 +0800</lastBuildDate>
+    <pubDate>Thu, 10 Jan 2019 16:05:23 +0800</pubDate>
+    <lastBuildDate>Thu, 10 Jan 2019 16:05:23 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
     
       <item>
@@ -152,7 +152,8 @@ ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/loc
 
 
 &lt;span class=&quot;c&quot;&gt;# check if base images exist
-&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BASE_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BASE_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
 	&lt;span class=&quot;nv&quot;&gt;BUILD_BASE_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; docker build &lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/base_image .
 &lt;span class=&quot;err&quot;&gt;else&lt;/span&gt;
 	&lt;span class=&quot;nv&quot;&gt;CLEAN_IMAGES&lt;/span&gt;		&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(CLEAN_IMAGES)&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt;
@@ -160,7 +161,8 @@ ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/loc
 &lt;span class=&quot;err&quot;&gt;endif&lt;/span&gt;
 
 &lt;span class=&quot;c&quot;&gt;# check if builder images exist
-&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
 	&lt;span class=&quot;nv&quot;&gt;BUILD_BUILDER_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; docker build &lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;FROM_IMAGE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
 							&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;APP_ROOT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(APP_ROOT)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
 							&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;BUNDLE_WITHOUT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(BUNDLE_WITHOUT)&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
