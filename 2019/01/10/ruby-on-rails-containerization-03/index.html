@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="google-site-verification" content="HUq9zIqmlLMHO-Ns9tEu6drasagknezrT2z0ispbmA8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Ruby on Rails容器化实践（二点一） - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2019/01/10/ruby-on-rails-containerization-03/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/make-docker-image.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/make-docker-image.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#Ruby" title="Ruby">Ruby</a>
+            
+            <a class="tag" href="/tags/#Rails" title="Rails">Rails</a>
+            
+            <a class="tag" href="/tags/#Docker" title="Docker">Docker</a>
+            
+            <a class="tag" href="/tags/#Kubernetes" title="Kubernetes">Kubernetes</a>
+            
+          </div>
+          <h1>Ruby on Rails容器化实践（二点一）</h1>
+          
+          
+          <h2 class="subheading">适用于编译时有大量依赖的情况，基于Debian</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2019-01-10
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>这是<a href="https://archfish.github.io/2018/08/20/ruby-on-rails-containerization-02/">Ruby on Rails容器化实践（二） - Archfish | Blog</a>的简化版。</p>
+
+<h2 id="大致流程">大致流程</h2>
+
+<h3 id="确定程序运行依赖">确定程序运行依赖</h3>
+
+<p>从正常跑的环境找一个服务进程，获取其PID后，获取需要依赖的库，并记录下来。以下流程以MacOS环境来举例（懒癌晚期），在Linux环境中依赖为<code class="highlighter-rouge">.so</code>。</p>
+
+<pre><code class="language-log">➜  ~ ps aux | grep rails
+weihl            99276   0.0  0.0  4333252    340 s002  S+   Tue05PM   0:00.45 /Users/weihl/.rvm/rubies/ruby-2.1.9/bin/ruby bin/rails c
+
+➜  ~ lsof -p 99276
+COMMAND   PID  USER   FD   TYPE             DEVICE  SIZE/OFF       NODE NAME
+ruby    99276 weihl  txt    REG                1,4      8960 4303138723 /Users/weihl/.rvm/rubies/ruby-2.1.9/bin/ruby
+ruby    99276 weihl  txt    REG                1,4   2910948 4303138725 /Users/weihl/.rvm/rubies/ruby-2.1.9/lib/libruby.2.1.0.dylib
+ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/local/Cellar/gmp/6.1.2_2/lib/libgmp.10.dylib
+</code></pre>
+
+<p>从结果可以得到当前运行除了Ruby自身运行库外还依赖<code class="highlighter-rouge">gmp</code>包，那么运行环境就需要包含<code class="highlighter-rouge">gmp</code>，版本也要一致。</p>
+
+<p>这种方式得到的依赖是当前已经在使用的，还有一些是动态加载的，比如字体，图片处理（imagemagick）等，需要慢慢完善。如果能直接用<code class="highlighter-rouge">ldd</code>对应用找依赖就更好啦。</p>
+
+<h3 id="确定程序编译期依赖">确定程序编译期依赖</h3>
+
+<p>这个直接问研发最快啦。比如我们应用就依赖开发工具包（debian: build-essential），libpq-dev，git，还有一大堆的gems。</p>
+
+<h3 id="发布阶段">发布阶段</h3>
+
+<p>利用包含编译期依赖的镜像进行打包，完成后将最终文件拷贝到由运行依赖的镜像中并提交到内部仓库。</p>
+
+<h2 id="dockerfile实现">Dockerfile实现</h2>
+
+<h3 id="base_image">base_image</h3>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># dockerfiles/base_image</span>
+<span class="k">FROM</span><span class="s"> ruby:2.3-slim-stretch</span>
+<span class="k">ENV</span><span class="s"> LC_ALL=C.UTF-8 \</span>
+    LANG=C.UTF-8 \
+    LANGUAGE=en_US:en
+
+<span class="k">RUN </span>apt update <span class="nt">-y</span> <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt <span class="nb">install</span> <span class="nt">--no-install-recommends</span> <span class="nt">-y</span> libpq5 wget curl vim gnupg2 libxrender1 <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt <span class="nb">install</span> <span class="nt">--no-install-recommends</span> <span class="nt">-y</span> file tzdata imagemagick gsfonts ttf-wqy-zenhei <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> <span class="nb">ln</span> <span class="nt">-sf</span> /usr/share/zoneinfo/Asia/Shanghai /etc/localtime <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt clean
+
+<span class="k">CMD</span><span class="s"> [ "irb" ]</span>
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker build <span class="nt">-t</span> ruby_base_image <span class="nt">-f</span> ./dockerfiles/base_image <span class="nb">.</span>
+</code></pre></div></div>
+
+<h3 id="builder_image">builder_image</h3>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># dockerfiles/builder_image</span>
+<span class="k">FROM</span><span class="s"> ruby_base_image</span>
+
+<span class="k">ENV</span><span class="s"> RAILS_ENV=production \</span>
+    BUNDLE_WITHOUT=development:test
+
+<span class="k">RUN </span>apt update <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt <span class="nb">install</span> <span class="nt">-y</span> build-essential libpq-dev <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt <span class="nb">install</span> <span class="nt">-y</span> git <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> apt clean
+
+<span class="k">ADD</span><span class="s"> ssh /root/.ssh</span>
+
+<span class="k">RUN </span><span class="nb">chmod </span>700 /root/.ssh <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> <span class="nb">chmod </span>600 /root/.ssh/id_rsa<span class="k">*</span> <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> ssh-keyscan my.gitlab.service.com <span class="o">&gt;</span> ~/.ssh/known_hosts
+
+<span class="k">WORKDIR</span><span class="s"> /opt/my_apps</span>
+
+<span class="c"># 以下两个步骤缓存gems，那编译期只需要增量更新即可，定期更新该镜像</span>
+<span class="k">ADD</span><span class="s"> Gemfile* ./</span>
+
+<span class="k">RUN </span>bundle config <span class="nt">--global</span> frozen 1 <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle <span class="nb">install</span> <span class="nt">-j4</span> <span class="nt">--retry</span> 3 <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> <span class="nb">rm</span> <span class="nt">-rf</span> Gemfile<span class="k">*</span>
+
+<span class="k">CMD</span><span class="s"> [ "irb" ]</span>
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker build <span class="nt">-t</span> ruby_builder_image <span class="nt">-f</span> ./dockerfiles/builder_image <span class="nb">.</span>
+</code></pre></div></div>
+
+<h3 id="release_image">release_image</h3>
+
+<div class="language-dockerfile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># dockerfiles/release_image</span>
+<span class="k">FROM</span><span class="s"> ruby_builder_image as Builder</span>
+
+<span class="k">ENV</span><span class="s"> BUNDLE_WITHOUT=development:test</span>
+
+<span class="k">WORKDIR</span><span class="s"> /opt/my_apps</span>
+
+<span class="k">RUN </span><span class="nb">mkdir</span> <span class="nt">-p</span> tmp/pids tmp/sockets <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle config <span class="nt">--global</span> frozen 1 <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle <span class="nb">install</span> <span class="nt">-j4</span> <span class="nt">--retry</span> 3 <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle <span class="nb">exec </span>rake assets:clean[0] <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle <span class="nb">exec </span>rake assets:precompile <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> bundle <span class="nb">exec </span>rake log:clear
+
+<span class="k">FROM</span><span class="s"> ruby_base_image</span>
+
+<span class="k">RUN </span>addgroup <span class="nt">--gid</span> 6666 my_app_group <span class="se">\
+</span>    <span class="o">&amp;&amp;</span> adduser <span class="nt">--uid</span> 6666 <span class="nt">--gid</span> 6666 <span class="nt">--disabled-password</span> <span class="nt">--gecos</span> <span class="s2">"Application"</span> my_app_user
+
+<span class="k">USER</span><span class="s"> my_app_user</span>
+
+<span class="k">COPY</span><span class="s"> --from=Builder /usr/local/bundle/ /usr/local/bundle/</span>
+<span class="k">COPY</span><span class="s"> --from=Builder --chown=my_app_user:my_app_group /opt/my_apps /opt/my_apps</span>
+
+<span class="k">ENV</span><span class="s"> RAILS_LOG_TO_STDOUT=true</span>
+
+<span class="k">WORKDIR</span><span class="s"> /opt/my_apps</span>
+
+<span class="k">EXPOSE</span><span class="s"> 8080</span>
+
+<span class="k">ENTRYPOINT</span><span class="s"> ["/bin/sh", "./entrypoint.sh"]</span>
+<span class="k">CMD</span><span class="s"> [ "server" ]</span>
+</code></pre></div></div>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>docker build <span class="nt">-t</span> ruby_release_image <span class="nt">-f</span> ./dockerfiles/release_image <span class="nb">.</span>
+</code></pre></div></div>
+
+<h2 id="协调全部流程">协调全部流程</h2>
+
+<p>通过编写Makefile将以上脚本全部组织起来，部分参数抽取为参数传入。</p>
+
+<div class="language-makefile highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">NAME</span>              <span class="o">=</span> <span class="nf">$(</span><span class="nb">shell</span> <span class="nb">basename</span> <span class="nt">-s</span> <span class="nb">.</span> <span class="sb">`</span>git rev-parse <span class="nt">--show-toplevel</span><span class="sb">`</span><span class="nv">)</span>
+<span class="nv">GIT_COMMIT</span>			  <span class="o">=</span> <span class="nf">$(</span><span class="nb">shell</span> git rev-parse <span class="nt">--short</span> HEAD<span class="nv">)</span>
+<span class="nv">GIT_BRANCH</span>			  <span class="o">=</span> <span class="nf">$(</span><span class="nb">shell</span> git rev-parse <span class="nt">--abbrev-ref</span> HEAD<span class="nv">)</span>
+<span class="nv">DOCKER_BASE_NAME</span>	<span class="o">=</span> reocar-ruby-2.3:stretch
+<span class="nv">DOCKER_BUILDER_NAME</span>	<span class="o">=</span> reocar-ruby-2.3:builder
+<span class="nv">APP_ROOT</span>			    <span class="o">=</span> /opt/<span class="nv">$(NAME)</span>
+<span class="nv">CLEAN_IMAGES</span>		  <span class="o">:=</span>
+<span class="nv">BUILD_TAG</span>			    <span class="o">:=</span> <span class="nv">$(tag)</span>
+<span class="nv">BUNDLE_WITHOUT</span>		<span class="o">:=</span> <span class="s2">"development:test"</span>
+
+
+<span class="c"># check if base images exist
+</span><span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BASE_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+	<span class="nv">BUILD_BASE_IMAGE</span>	<span class="o">=</span> docker build <span class="nt">-t</span> <span class="nv">$(DOCKER_BASE_NAME)</span> <span class="nt">-f</span> ./dockerfiles/base_image .
+<span class="err">else</span>
+	<span class="nv">CLEAN_IMAGES</span>		<span class="o">:=</span> <span class="nv">$(CLEAN_IMAGES)</span> <span class="nv">$(DOCKER_BASE_NAME)</span>
+	<span class="nv">BUILD_BASE_IMAGE</span>	<span class="o">=</span>
+<span class="err">endif</span>
+
+<span class="c"># check if builder images exist
+</span><span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&gt; /dev/null)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+	<span class="nv">BUILD_BUILDER_IMAGE</span>	<span class="o">=</span> docker build <span class="nt">--build-arg</span> <span class="nv">FROM_IMAGE</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(DOCKER_BASE_NAME)</span><span class="s2">"</span> <span class="se">\</span>
+							<span class="nt">--build-arg</span> <span class="nv">APP_ROOT</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(APP_ROOT)</span><span class="s2">"</span> <span class="se">\</span>
+							<span class="nt">--build-arg</span> <span class="nv">BUNDLE_WITHOUT</span><span class="o">=</span><span class="nv">$(BUNDLE_WITHOUT)</span> <span class="se">\</span>
+							<span class="nt">-t</span> <span class="nv">$(DOCKER_BUILDER_NAME)</span> <span class="se">\</span>
+							<span class="nt">-f</span> ./dockerfiles/builder_image .
+<span class="err">else</span>
+	<span class="nv">CLEAN_IMAGES</span>		<span class="o">:=</span> <span class="nv">$(CLEAN_IMAGES)</span> <span class="nv">$(DOCKER_BUILDER_NAME)</span>
+	<span class="nv">BUILD_BUILDER_IMAGE</span>	<span class="o">=</span>
+<span class="err">endif</span>
+
+<span class="nv">CLEAN_IMAGES</span>	<span class="o">:=</span> <span class="nf">$(</span><span class="nb">shell</span> <span class="nb">echo</span> <span class="nv">$(CLEAN_IMAGES)</span> | xargs<span class="nv">)</span>
+
+<span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(CLEAN_IMAGES)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+	<span class="nv">CLEAN_DOCKER_IMAGES</span>	<span class="o">=</span>
+<span class="err">else</span>
+	<span class="nv">CLEAN_DOCKER_IMAGES</span>	<span class="o">=</span> docker rmi <span class="nv">$(CLEAN_IMAGES)</span>
+<span class="err">endif</span>
+
+<span class="err">ifeq</span> <span class="err">(</span><span class="s2">"$(BUILD_TAG)"</span><span class="err">,</span><span class="s2">""</span><span class="err">)</span>
+	<span class="nv">BUILD_TAG</span>	<span class="o">:=</span> <span class="nf">$(</span><span class="nb">shell</span> <span class="nb">date</span> +%Y%m%d%H%M<span class="nv">)</span>
+<span class="err">endif</span>
+
+<span class="nl">.PHONY</span><span class="o">:</span> <span class="nf">docker base builder cpssh clean</span>
+<span class="nv">.DEFAULT_GOAL</span> <span class="o">:=</span> docker
+
+<span class="nl">docker</span><span class="o">:</span> <span class="nf">base builder; $(info ======== build $(NAME) release image:)</span>
+	docker build <span class="nt">--build-arg</span> <span class="nv">RUNTIME_IMAGE</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(DOCKER_BASE_NAME)</span><span class="s2">"</span> <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">BUILDER_IMAGE</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(DOCKER_BUILDER_NAME)</span><span class="s2">"</span> <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">FOLDERS_TO_REMOVE</span><span class="o">=</span><span class="s2">"spec node_modules"</span> <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">BUNDLE_WITHOUT</span><span class="o">=</span><span class="nv">$(BUNDLE_WITHOUT)</span> <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">EXECJS_RUNTIME</span><span class="o">=</span>Disabled <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">RAILS_ENV</span><span class="o">=</span>production <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">NODE_ENV</span><span class="o">=</span>production <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">APP_ROOT</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(APP_ROOT)</span><span class="s2">"</span> <span class="se">\</span>
+				<span class="nt">--build-arg</span> <span class="nv">APP_VERSION</span><span class="o">=</span><span class="s2">"</span><span class="nv">$(NAME)</span><span class="s2">,</span><span class="nv">$(GIT_BRANCH)</span><span class="s2">,</span><span class="nv">$(GIT_COMMIT)</span><span class="s2">"</span> <span class="se">\</span>
+				<span class="nt">-t</span> <span class="nv">$(NAME)</span>:<span class="nv">$(BUILD_TAG)</span> <span class="se">\</span>
+				<span class="nt">--rm</span> <span class="nt">-f</span> ./dockerfiles/release_image .
+
+<span class="nl">base</span><span class="o">:</span> <span class="nf">; $(info ======== build $(NAME) runtime image:)</span>
+	<span class="p">@</span><span class="nv">$(BUILD_BASE_IMAGE)</span>
+
+<span class="nl">builder</span><span class="o">:</span> <span class="nf">cpssh; $(info ======== build $(NAME) compile image:)</span>
+	<span class="p">@</span><span class="nv">$(BUILD_BUILDER_IMAGE)</span>
+
+<span class="nl">cpssh</span><span class="o">:</span>
+	<span class="p">@</span><span class="nb">mkdir</span> <span class="nt">-p</span> ssh
+	<span class="p">@</span><span class="nb">cp</span> <span class="nt">-R</span> ~/.ssh/id_rsa<span class="k">*</span> ssh/
+
+<span class="nl">clean</span><span class="o">:</span> <span class="nf">; $(info ======== clean docker images: $(CLEAN_IMAGES))</span>
+	<span class="p">@</span><span class="nv">$(CLEAN_DOCKER_IMAGES)</span>
+	<span class="p">@</span><span class="nb">rm</span> <span class="nt">-rf</span> ssh
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<p>当通过多段镜像实现部分流程的显式缓存，避免大量重复网络请求，从而实现镜像打包加速。最终镜像仅包含程序文件和运行时文件，大大降低镜像的体积。</p>
+
+<p>缓存镜像需要定期更新，或者依赖发生变化时清除旧的缓存镜像重新打包。</p>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2018/08/20/ruby-on-rails-containerization-02/" data-toggle="tooltip" data-placement="top" title="Ruby on Rails容器化实践（二）">
+            Previous<br>
+            <span>Ruby on Rails容器化实践（二）</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2019
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

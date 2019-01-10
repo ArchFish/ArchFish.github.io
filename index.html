@@ -178,6 +178,35 @@
         ">
       
 <div class="post-preview">
+  <a href="/2019/01/10/ruby-on-rails-containerization-03/">
+    <h2 class="post-title">
+      Ruby on Rails容器化实践（二点一）
+    </h2>
+    
+    <h3 class="post-subtitle">
+      适用于编译时有大量依赖的情况，基于Debian
+    </h3>
+    
+    <div class="post-content-preview">
+      这是Ruby on Rails容器化实践（二） - Archfish | Blog的简化版。
+
+大致流程
+
+确定程序运行依赖
+
+从正常跑的环境找一个服务进程，获取其PID后，获取需要依赖的库，并记录下来。以下流程以MacOS环境来举例（懒癌晚期），在Linux环境中依赖为.so。
+
+➜  ~ ps aux | grep rails
+weihl            99276   0.0  ...
+    </div>
+  </a>
+  <p class="post-meta">
+    Posted by Archfish on 2019-01-10
+  </p>
+</div>
+<hr>
+
+<div class="post-preview">
   <a href="/2018/08/20/ruby-on-rails-containerization-02/">
     <h2 class="post-title">
       Ruby on Rails容器化实践（二）
@@ -395,7 +424,7 @@ IdentityCache
     <div class="row">
       <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
         <p class="copyright text-muted">
-          Copyright &copy; 韦初一的小窝 2018
+          Copyright &copy; 韦初一的小窝 2019
           <iframe
             style="margin-left: 2px; margin-bottom:-5px;"
             frameborder="0" scrolling="0" width="100px" height="20px"

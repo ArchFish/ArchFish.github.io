@@ -5,9 +5,240 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 23 Aug 2018 22:40:23 +0800</pubDate>
-    <lastBuildDate>Thu, 23 Aug 2018 22:40:23 +0800</lastBuildDate>
+    <pubDate>Thu, 10 Jan 2019 16:01:29 +0800</pubDate>
+    <lastBuildDate>Thu, 10 Jan 2019 16:01:29 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
+    
+      <item>
+        <title>Ruby on Rails容器化实践（二点一）</title>
+        <description>&lt;p&gt;这是&lt;a href=&quot;https://archfish.github.io/2018/08/20/ruby-on-rails-containerization-02/&quot;&gt;Ruby on Rails容器化实践（二） - Archfish | Blog&lt;/a&gt;的简化版。&lt;/p&gt;
+
+&lt;h2 id=&quot;大致流程&quot;&gt;大致流程&lt;/h2&gt;
+
+&lt;h3 id=&quot;确定程序运行依赖&quot;&gt;确定程序运行依赖&lt;/h3&gt;
+
+&lt;p&gt;从正常跑的环境找一个服务进程，获取其PID后，获取需要依赖的库，并记录下来。以下流程以MacOS环境来举例（懒癌晚期），在Linux环境中依赖为&lt;code class=&quot;highlighter-rouge&quot;&gt;.so&lt;/code&gt;。&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-log&quot;&gt;➜  ~ ps aux | grep rails
+weihl            99276   0.0  0.0  4333252    340 s002  S+   Tue05PM   0:00.45 /Users/weihl/.rvm/rubies/ruby-2.1.9/bin/ruby bin/rails c
+
+➜  ~ lsof -p 99276
+COMMAND   PID  USER   FD   TYPE             DEVICE  SIZE/OFF       NODE NAME
+ruby    99276 weihl  txt    REG                1,4      8960 4303138723 /Users/weihl/.rvm/rubies/ruby-2.1.9/bin/ruby
+ruby    99276 weihl  txt    REG                1,4   2910948 4303138725 /Users/weihl/.rvm/rubies/ruby-2.1.9/lib/libruby.2.1.0.dylib
+ruby    99276 weihl  txt    REG                1,4    422620 4303467382 /usr/local/Cellar/gmp/6.1.2_2/lib/libgmp.10.dylib
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;从结果可以得到当前运行除了Ruby自身运行库外还依赖&lt;code class=&quot;highlighter-rouge&quot;&gt;gmp&lt;/code&gt;包，那么运行环境就需要包含&lt;code class=&quot;highlighter-rouge&quot;&gt;gmp&lt;/code&gt;，版本也要一致。&lt;/p&gt;
+
+&lt;p&gt;这种方式得到的依赖是当前已经在使用的，还有一些是动态加载的，比如字体，图片处理（imagemagick）等，需要慢慢完善。如果能直接用&lt;code class=&quot;highlighter-rouge&quot;&gt;ldd&lt;/code&gt;对应用找依赖就更好啦。&lt;/p&gt;
+
+&lt;h3 id=&quot;确定程序编译期依赖&quot;&gt;确定程序编译期依赖&lt;/h3&gt;
+
+&lt;p&gt;这个直接问研发最快啦。比如我们应用就依赖开发工具包（debian: build-essential），libpq-dev，git，还有一大堆的gems。&lt;/p&gt;
+
+&lt;h3 id=&quot;发布阶段&quot;&gt;发布阶段&lt;/h3&gt;
+
+&lt;p&gt;利用包含编译期依赖的镜像进行打包，完成后将最终文件拷贝到由运行依赖的镜像中并提交到内部仓库。&lt;/p&gt;
+
+&lt;h2 id=&quot;dockerfile实现&quot;&gt;Dockerfile实现&lt;/h2&gt;
+
+&lt;h3 id=&quot;base_image&quot;&gt;base_image&lt;/h3&gt;
+
+&lt;div class=&quot;language-dockerfile highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;# dockerfiles/base_image&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; ruby:2.3-slim-stretch&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ENV&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; LC_ALL=C.UTF-8 \&lt;/span&gt;
+    LANG=C.UTF-8 \
+    LANGUAGE=en_US:en
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;apt update &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--no-install-recommends&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; libpq5 wget curl vim gnupg2 libxrender1 &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--no-install-recommends&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; file tzdata imagemagick gsfonts ttf-wqy-zenhei &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;ln&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-sf&lt;/span&gt; /usr/share/zoneinfo/Asia/Shanghai /etc/localtime &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt clean
+
+&lt;span class=&quot;k&quot;&gt;CMD&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; [ &quot;irb&quot; ]&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker build &lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; ruby_base_image &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/base_image &lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;builder_image&quot;&gt;builder_image&lt;/h3&gt;
+
+&lt;div class=&quot;language-dockerfile highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;# dockerfiles/builder_image&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; ruby_base_image&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;ENV&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; RAILS_ENV=production \&lt;/span&gt;
+    BUNDLE_WITHOUT=development:test
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;apt update &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; build-essential libpq-dev &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-y&lt;/span&gt; git &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; apt clean
+
+&lt;span class=&quot;k&quot;&gt;ADD&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; ssh /root/.ssh&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;chmod &lt;/span&gt;700 /root/.ssh &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;chmod &lt;/span&gt;600 /root/.ssh/id_rsa&lt;span class=&quot;k&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; ssh-keyscan my.gitlab.service.com &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; ~/.ssh/known_hosts
+
+&lt;span class=&quot;k&quot;&gt;WORKDIR&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; /opt/my_apps&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# 以下两个步骤缓存gems，那编译期只需要增量更新即可，定期更新该镜像&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;ADD&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; Gemfile* ./&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;bundle config &lt;span class=&quot;nt&quot;&gt;--global&lt;/span&gt; frozen 1 &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-j4&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--retry&lt;/span&gt; 3 &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;rm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-rf&lt;/span&gt; Gemfile&lt;span class=&quot;k&quot;&gt;*&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;CMD&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; [ &quot;irb&quot; ]&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker build &lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; ruby_builder_image &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/builder_image &lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;release_image&quot;&gt;release_image&lt;/h3&gt;
+
+&lt;div class=&quot;language-dockerfile highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;# dockerfiles/release_image&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; ruby_builder_image as Builder&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;ENV&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; BUNDLE_WITHOUT=development:test&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;WORKDIR&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; /opt/my_apps&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;mkdir&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-p&lt;/span&gt; tmp/pids tmp/sockets &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle config &lt;span class=&quot;nt&quot;&gt;--global&lt;/span&gt; frozen 1 &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-j4&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--retry&lt;/span&gt; 3 &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;rake assets:clean[0] &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;rake assets:precompile &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; bundle &lt;span class=&quot;nb&quot;&gt;exec &lt;/span&gt;rake log:clear
+
+&lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; ruby_base_image&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;RUN &lt;/span&gt;addgroup &lt;span class=&quot;nt&quot;&gt;--gid&lt;/span&gt; 6666 my_app_group &lt;span class=&quot;se&quot;&gt;\
+&lt;/span&gt;    &lt;span class=&quot;o&quot;&gt;&amp;amp;&amp;amp;&lt;/span&gt; adduser &lt;span class=&quot;nt&quot;&gt;--uid&lt;/span&gt; 6666 &lt;span class=&quot;nt&quot;&gt;--gid&lt;/span&gt; 6666 &lt;span class=&quot;nt&quot;&gt;--disabled-password&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;--gecos&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Application&quot;&lt;/span&gt; my_app_user
+
+&lt;span class=&quot;k&quot;&gt;USER&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; my_app_user&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;COPY&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; --from=Builder /usr/local/bundle/ /usr/local/bundle/&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;COPY&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; --from=Builder --chown=my_app_user:my_app_group /opt/my_apps /opt/my_apps&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;ENV&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; RAILS_LOG_TO_STDOUT=true&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;WORKDIR&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; /opt/my_apps&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;EXPOSE&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; 8080&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;ENTRYPOINT&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; [&quot;/bin/sh&quot;, &quot;./entrypoint.sh&quot;]&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;CMD&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; [ &quot;server&quot; ]&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker build &lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; ruby_release_image &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/release_image &lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;协调全部流程&quot;&gt;协调全部流程&lt;/h2&gt;
+
+&lt;p&gt;通过编写Makefile将以上脚本全部组织起来，部分参数抽取为参数传入。&lt;/p&gt;
+
+&lt;div class=&quot;language-makefile highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nv&quot;&gt;NAME&lt;/span&gt;              &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;shell&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;basename&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-s&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;.&lt;/span&gt; &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;git rev-parse &lt;span class=&quot;nt&quot;&gt;--show-toplevel&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;GIT_COMMIT&lt;/span&gt;			  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;shell&lt;/span&gt; git rev-parse &lt;span class=&quot;nt&quot;&gt;--short&lt;/span&gt; HEAD&lt;span class=&quot;nv&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;GIT_BRANCH&lt;/span&gt;			  &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;shell&lt;/span&gt; git rev-parse &lt;span class=&quot;nt&quot;&gt;--abbrev-ref&lt;/span&gt; HEAD&lt;span class=&quot;nv&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;DOCKER_BASE_NAME&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; reocar-ruby-2.3:stretch
+&lt;span class=&quot;nv&quot;&gt;DOCKER_BUILDER_NAME&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; reocar-ruby-2.3:builder
+&lt;span class=&quot;nv&quot;&gt;APP_ROOT&lt;/span&gt;			    &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; /opt/&lt;span class=&quot;nv&quot;&gt;$(NAME)&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;CLEAN_IMAGES&lt;/span&gt;		  &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;BUILD_TAG&lt;/span&gt;			    &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(tag)&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;BUNDLE_WITHOUT&lt;/span&gt;		&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;development:test&quot;&lt;/span&gt;
+
+
+&lt;span class=&quot;c&quot;&gt;# check if base images exist
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BASE_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;BUILD_BASE_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; docker build &lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/base_image .
+&lt;span class=&quot;err&quot;&gt;else&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;CLEAN_IMAGES&lt;/span&gt;		&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(CLEAN_IMAGES)&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;BUILD_BASE_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;endif&lt;/span&gt;
+
+&lt;span class=&quot;c&quot;&gt;# check if builder images exist
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(shell docker images -q $(DOCKER_BUILDER_NAME) 2&amp;gt; /dev/null)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;BUILD_BUILDER_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; docker build &lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;FROM_IMAGE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+							&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;APP_ROOT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(APP_ROOT)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+							&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;BUNDLE_WITHOUT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(BUNDLE_WITHOUT)&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+							&lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BUILDER_NAME)&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+							&lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/builder_image .
+&lt;span class=&quot;err&quot;&gt;else&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;CLEAN_IMAGES&lt;/span&gt;		&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(CLEAN_IMAGES)&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(DOCKER_BUILDER_NAME)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;BUILD_BUILDER_IMAGE&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;endif&lt;/span&gt;
+
+&lt;span class=&quot;nv&quot;&gt;CLEAN_IMAGES&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;shell&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;echo&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(CLEAN_IMAGES)&lt;/span&gt; | xargs&lt;span class=&quot;nv&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(CLEAN_IMAGES)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;CLEAN_DOCKER_IMAGES&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;else&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;CLEAN_DOCKER_IMAGES&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; docker rmi &lt;span class=&quot;nv&quot;&gt;$(CLEAN_IMAGES)&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;endif&lt;/span&gt;
+
+&lt;span class=&quot;err&quot;&gt;ifeq&lt;/span&gt; &lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;$(BUILD_TAG)&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&quot;&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;
+	&lt;span class=&quot;nv&quot;&gt;BUILD_TAG&lt;/span&gt;	&lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;$(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;shell&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;date&lt;/span&gt; +%Y%m%d%H%M&lt;span class=&quot;nv&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;err&quot;&gt;endif&lt;/span&gt;
+
+&lt;span class=&quot;nl&quot;&gt;.PHONY&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;docker base builder cpssh clean&lt;/span&gt;
+&lt;span class=&quot;nv&quot;&gt;.DEFAULT_GOAL&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;:=&lt;/span&gt; docker
+
+&lt;span class=&quot;nl&quot;&gt;docker&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;base builder; $(info ======== build $(NAME) release image:)&lt;/span&gt;
+	docker build &lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;RUNTIME_IMAGE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(DOCKER_BASE_NAME)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;BUILDER_IMAGE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(DOCKER_BUILDER_NAME)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;FOLDERS_TO_REMOVE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;spec node_modules&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;BUNDLE_WITHOUT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(BUNDLE_WITHOUT)&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;EXECJS_RUNTIME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;Disabled &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;RAILS_ENV&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;production &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;NODE_ENV&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;production &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;APP_ROOT&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(APP_ROOT)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--build-arg&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;APP_VERSION&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(NAME)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(GIT_BRANCH)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(GIT_COMMIT)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;-t&lt;/span&gt; &lt;span class=&quot;nv&quot;&gt;$(NAME)&lt;/span&gt;:&lt;span class=&quot;nv&quot;&gt;$(BUILD_TAG)&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+				&lt;span class=&quot;nt&quot;&gt;--rm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-f&lt;/span&gt; ./dockerfiles/release_image .
+
+&lt;span class=&quot;nl&quot;&gt;base&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;; $(info ======== build $(NAME) runtime image:)&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(BUILD_BASE_IMAGE)&lt;/span&gt;
+
+&lt;span class=&quot;nl&quot;&gt;builder&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;cpssh; $(info ======== build $(NAME) compile image:)&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(BUILD_BUILDER_IMAGE)&lt;/span&gt;
+
+&lt;span class=&quot;nl&quot;&gt;cpssh&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;mkdir&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-p&lt;/span&gt; ssh
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;cp&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-R&lt;/span&gt; ~/.ssh/id_rsa&lt;span class=&quot;k&quot;&gt;*&lt;/span&gt; ssh/
+
+&lt;span class=&quot;nl&quot;&gt;clean&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;; $(info ======== clean docker images: $(CLEAN_IMAGES))&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$(CLEAN_DOCKER_IMAGES)&lt;/span&gt;
+	&lt;span class=&quot;p&quot;&gt;@&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;rm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-rf&lt;/span&gt; ssh
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;总结&quot;&gt;总结&lt;/h2&gt;
+
+&lt;p&gt;当通过多段镜像实现部分流程的显式缓存，避免大量重复网络请求，从而实现镜像打包加速。最终镜像仅包含程序文件和运行时文件，大大降低镜像的体积。&lt;/p&gt;
+
+&lt;p&gt;缓存镜像需要定期更新，或者依赖发生变化时清除旧的缓存镜像重新打包。&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 10 Jan 2019 15:55:16 +0800</pubDate>
+        <link>https://archfish.top/2019/01/10/ruby-on-rails-containerization-03/</link>
+        <guid isPermaLink="true">https://archfish.top/2019/01/10/ruby-on-rails-containerization-03/</guid>
+        
+        <category>Ruby</category>
+        
+        <category>Rails</category>
+        
+        <category>Docker</category>
+        
+        <category>Kubernetes</category>
+        
+        
+      </item>
     
       <item>
         <title>Ruby on Rails容器化实践（二）</title>
