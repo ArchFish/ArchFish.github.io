@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="google-site-verification" content="HUq9zIqmlLMHO-Ns9tEu6drasagknezrT2z0ispbmA8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>macOS使用brew安装用户级ruby - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2019/04/13/macos_brew_manage_multiple_ruby_versions/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/home-bg.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#macOS" title="macOS">macOS</a>
+            
+            <a class="tag" href="/tags/#brew" title="brew">brew</a>
+            
+            <a class="tag" href="/tags/#ruby" title="ruby">ruby</a>
+            
+          </div>
+          <h1>macOS使用brew安装用户级ruby</h1>
+          
+          
+          <h2 class="subheading">通过简单的脚本即可实现多版本管理</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2019-04-13
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>系统自带了一个ruby，但是这个ruby是保存在系统库中的，如果需要安装gem则会提示无权限<code class="highlighter-rouge">You don't have write permissions for the /Library/Ruby/Gems/2.3 directory.</code>。那么rvm呢，这货在安装ruby-2.3版本的时候总会出现openssl问题。</p>
+
+<p>所以使用brew来安装一个user级的ruby，并通过简单脚本实现ruby版本切换：</p>
+
+<h2 id="安装ruby23">安装ruby2.3</h2>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>brew <span class="nb">install </span>ruby@2.3
+</code></pre></div></div>
+
+<h2 id="更新rubygem">更新rubygem</h2>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gem update <span class="nt">--system</span>
+</code></pre></div></div>
+
+<h2 id="配置环境变量">配置环境变量</h2>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">RUBY_HOME</span><span class="o">=</span>/usr/local/opt/ruby@2.3
+<span class="nb">export </span><span class="nv">GEM_HOME</span><span class="o">=</span><span class="nv">$RUBY_HOME</span>/lib/ruby/gems/2.3.0
+<span class="nb">export </span><span class="nv">GEM_PATH</span><span class="o">=</span><span class="nv">$RUBY_HOME</span>/lib/ruby/gems/2.3.0
+<span class="c"># 记录没有ruby时的环境变量</span>
+<span class="nb">export </span><span class="nv">ORIG_PATH</span><span class="o">=</span><span class="nv">$PATH</span>
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$RUBY_HOME</span><span class="s2">/bin:/usr/local/lib/ruby/gems/2.3.0/bin:</span><span class="nv">$ORIG_PATH</span><span class="s2">"</span>
+</code></pre></div></div>
+
+<h2 id="封装并提供切换功能">封装并提供切换功能</h2>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">ORIG_PATH</span><span class="o">=</span><span class="nv">$PATH</span>
+
+<span class="k">function </span>ruby_use
+<span class="o">{</span>
+    <span class="k">if</span> <span class="o">[</span> <span class="s2">"</span><span class="nv">$1</span><span class="s2">"</span> <span class="o">=</span> <span class="s1">''</span> <span class="o">]</span>
+    <span class="k">then
+        </span><span class="nb">export </span><span class="nv">RUBY_MAIN_VERSION</span><span class="o">=</span><span class="s1">'2.3'</span>
+    <span class="k">else
+        </span><span class="nb">export </span><span class="nv">RUBY_MAIN_VERSION</span><span class="o">=</span><span class="nv">$1</span>
+    <span class="k">fi
+
+    </span><span class="nb">export </span><span class="nv">RUBY_HOME</span><span class="o">=</span><span class="s2">"/usr/local/opt/ruby@</span><span class="k">${</span><span class="nv">RUBY_MAIN_VERSION</span><span class="k">}</span><span class="s2">"</span>
+    <span class="nb">export </span><span class="nv">GEM_HOME</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">RUBY_HOME</span><span class="k">}</span><span class="s2">/lib/ruby/gems/</span><span class="k">${</span><span class="nv">RUBY_MAIN_VERSION</span><span class="k">}</span><span class="s2">.0"</span>
+    <span class="nb">export </span><span class="nv">GEM_PATH</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">RUBY_HOME</span><span class="k">}</span><span class="s2">/lib/ruby/gems/</span><span class="k">${</span><span class="nv">RUBY_MAIN_VERSION</span><span class="k">}</span><span class="s2">.0"</span>
+    <span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">"</span><span class="k">${</span><span class="nv">RUBY_HOME</span><span class="k">}</span><span class="s2">/bin:/usr/local/lib/ruby/gems/</span><span class="k">${</span><span class="nv">RUBY_MAIN_VERSION</span><span class="k">}</span><span class="s2">.0/bin:</span><span class="nv">$ORIG_PATH</span><span class="s2">"</span>
+<span class="o">}</span>
+
+ruby_use
+</code></pre></div></div>
+
+<p>在需要切换ruby版本时在相应终端使用<code class="highlighter-rouge">ruby_use 版本</code>即可.</p>
+
+<h2 id="已知问题">已知问题</h2>
+
+<ul>
+  <li>不会自动在命令前加<code class="highlighter-rouge">bundle exec</code>, 解决办法：创建相关命令的alias。不推荐这样做<code class="highlighter-rouge">alias rails='bundle exec rails'</code>，会导致<code class="highlighter-rouge">rails new</code>时报找不到Gemfile错误。</li>
+  <li>暂不支持小版本控制</li>
+  <li>每次切换ruby版本只会对当前终端有效（或许这是feature…</li>
+</ul>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2019/01/10/ruby-on-rails-containerization-03/" data-toggle="tooltip" data-placement="top" title="Ruby on Rails容器化实践（二点一）">
+            Previous<br>
+            <span>Ruby on Rails容器化实践（二点一）</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2019
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>

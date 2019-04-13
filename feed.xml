@@ -5,9 +5,85 @@
     <description>精于心 简于形</description>
     <link>https://archfish.top/</link>
     <atom:link href="https://archfish.top/feed.xml" rel="self" type="application/rss+xml" />
-    <pubDate>Thu, 10 Jan 2019 16:05:23 +0800</pubDate>
-    <lastBuildDate>Thu, 10 Jan 2019 16:05:23 +0800</lastBuildDate>
+    <pubDate>Sat, 13 Apr 2019 23:55:20 +0800</pubDate>
+    <lastBuildDate>Sat, 13 Apr 2019 23:55:20 +0800</lastBuildDate>
     <generator>Jekyll v3.8.3</generator>
+    
+      <item>
+        <title>macOS使用brew安装用户级ruby</title>
+        <description>&lt;p&gt;系统自带了一个ruby，但是这个ruby是保存在系统库中的，如果需要安装gem则会提示无权限&lt;code class=&quot;highlighter-rouge&quot;&gt;You don't have write permissions for the /Library/Ruby/Gems/2.3 directory.&lt;/code&gt;。那么rvm呢，这货在安装ruby-2.3版本的时候总会出现openssl问题。&lt;/p&gt;
+
+&lt;p&gt;所以使用brew来安装一个user级的ruby，并通过简单脚本实现ruby版本切换：&lt;/p&gt;
+
+&lt;h2 id=&quot;安装ruby23&quot;&gt;安装ruby2.3&lt;/h2&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;brew &lt;span class=&quot;nb&quot;&gt;install &lt;/span&gt;ruby@2.3
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;更新rubygem&quot;&gt;更新rubygem&lt;/h2&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gem update &lt;span class=&quot;nt&quot;&gt;--system&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;配置环境变量&quot;&gt;配置环境变量&lt;/h2&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_HOME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;/usr/local/opt/ruby@2.3
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;GEM_HOME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$RUBY_HOME&lt;/span&gt;/lib/ruby/gems/2.3.0
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;GEM_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$RUBY_HOME&lt;/span&gt;/lib/ruby/gems/2.3.0
+&lt;span class=&quot;c&quot;&gt;# 记录没有ruby时的环境变量&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ORIG_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$PATH&lt;/span&gt;
+&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$RUBY_HOME&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/bin:/usr/local/lib/ruby/gems/2.3.0/bin:&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ORIG_PATH&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;封装并提供切换功能&quot;&gt;封装并提供切换功能&lt;/h2&gt;
+
+&lt;div class=&quot;language-shell highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;ORIG_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$PATH&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;function &lt;/span&gt;ruby_use
+&lt;span class=&quot;o&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s1&quot;&gt;''&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;then
+        &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s1&quot;&gt;'2.3'&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else
+        &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$1&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;fi
+
+    &lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_HOME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;/usr/local/opt/ruby@&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;GEM_HOME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_HOME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/lib/ruby/gems/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;.0&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;GEM_PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_HOME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/lib/ruby/gems/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;.0&quot;&lt;/span&gt;
+    &lt;span class=&quot;nb&quot;&gt;export &lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;PATH&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_HOME&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;/bin:/usr/local/lib/ruby/gems/&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;${&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;RUBY_MAIN_VERSION&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;.0/bin:&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ORIG_PATH&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;}&lt;/span&gt;
+
+ruby_use
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;在需要切换ruby版本时在相应终端使用&lt;code class=&quot;highlighter-rouge&quot;&gt;ruby_use 版本&lt;/code&gt;即可.&lt;/p&gt;
+
+&lt;h2 id=&quot;已知问题&quot;&gt;已知问题&lt;/h2&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;不会自动在命令前加&lt;code class=&quot;highlighter-rouge&quot;&gt;bundle exec&lt;/code&gt;, 解决办法：创建相关命令的alias。不推荐这样做&lt;code class=&quot;highlighter-rouge&quot;&gt;alias rails='bundle exec rails'&lt;/code&gt;，会导致&lt;code class=&quot;highlighter-rouge&quot;&gt;rails new&lt;/code&gt;时报找不到Gemfile错误。&lt;/li&gt;
+  &lt;li&gt;暂不支持小版本控制&lt;/li&gt;
+  &lt;li&gt;每次切换ruby版本只会对当前终端有效（或许这是feature…&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;欢迎跟我交流 &lt;a href=&quot;https://github.com/archfish/archfish&quot; title=&quot;archfish blog&quot;&gt;Archfish&lt;/a&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Sat, 13 Apr 2019 23:43:08 +0800</pubDate>
+        <link>https://archfish.top/2019/04/13/macos_brew_manage_multiple_ruby_versions/</link>
+        <guid isPermaLink="true">https://archfish.top/2019/04/13/macos_brew_manage_multiple_ruby_versions/</guid>
+        
+        <category>macOS</category>
+        
+        <category>brew</category>
+        
+        <category>ruby</category>
+        
+        
+      </item>
     
       <item>
         <title>Ruby on Rails容器化实践（二点一）</title>
