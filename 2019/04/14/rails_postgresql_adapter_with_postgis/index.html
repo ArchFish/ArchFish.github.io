@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  
+  <meta name="google-site-verification" content="HUq9zIqmlLMHO-Ns9tEu6drasagknezrT2z0ispbmA8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="精于心 简于形">
+  <meta name="keywords"  content="">
+  <meta name="theme-color" content="#000000">
+
+  <title>Rails use postgresql-adapter to compute postgis - Archfish | Blog</title>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/pwa/manifest.json">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" href="/img/favicon.ico">
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://archfish.top/2019/04/14/rails_postgresql_adapter_with_postgis/">
+
+  <!-- Bootstrap Core CSS -->
+  <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/css/archfish.min.css">
+
+  <!-- Pygments Github CSS -->
+  <link rel="stylesheet" href="/css/syntax.css">
+
+  <!-- Custom Fonts -->
+  <!-- <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+  <!-- Change font-awesome CDN to qiniu -->
+  <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+  <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+  <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+  <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+      <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+  <![endif]-->
+
+  <!-- ga & ba script hoook -->
+  <!-- <script></script> -->
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+  <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header page-scroll">
+      <button type="button" class="navbar-toggle">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div id="blog_navbar">
+      <div class="navbar-collapse">
+        <ul class="nav navbar-nav navbar-right">
+          <li>
+            <a href="/">Home</a>
+          </li>
+          
+          <li>
+            <a href="/about/">About</a>
+          </li>
+          
+          <li>
+            <a href="/portfolio/">Portfolio</a>
+          </li>
+          
+          <li>
+            <a href="/tags/">Tags</a>
+          </li>
+          
+        </ul>
+      </div>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+  <!-- /.container -->
+</nav>
+<script>
+  // Drop Bootstarp low-performance Navbar
+  // Use customize navbar with high-quality material design animation
+  // in high-perf jank-free CSS3 implementation
+  var $body   = document.body;
+  var $toggle = document.querySelector('.navbar-toggle');
+  var $navbar = document.querySelector('#blog_navbar');
+  var $collapse = document.querySelector('.navbar-collapse');
+
+  var __Nav__ = {
+    close: function(){
+      $navbar.className = " ";
+      // wait until animation end.
+      setTimeout(function(){
+        // prevent frequently toggle
+        if($navbar.className.indexOf('in') < 0) {
+          $collapse.style.height = "0px"
+        }
+      },400)
+    },
+    open: function(){
+      $collapse.style.height = "auto"
+      $navbar.className += " in";
+    }
+  }
+
+  // Bind Event
+  $toggle.addEventListener('click', function(e){
+    if ($navbar.className.indexOf('in') > 0) {
+      __Nav__.close()
+    }else{
+      __Nav__.open()
+    }
+  })
+
+  /**
+   * Since Fastclick is used to delegate 'touchstart' globally
+   * to hack 300ms delay in iOS by performing a fake 'click',
+   * Using 'e.stopPropagation' to stop 'touchstart' event from
+   * $toggle/$collapse will break global delegation.
+   *
+   * Instead, we use a 'e.target' filter to prevent handler
+   * added to document close Nav.
+   *
+   * Also, we use 'click' instead of 'touchstart' as compromise
+   */
+  document.addEventListener('click', function(e){
+    if(e.target == $toggle) return;
+    if(e.target.className == 'icon-bar') return;
+    __Nav__.close();
+  })
+</script>
+
+
+  <!-- Image to hack wechat -->
+<!-- <img src="/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="/img/home-bg.jpg" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+  header.intro-header{
+    position: relative;
+    background-image: url('/img/home-bg.jpg')
+  }
+
+  
+  header.intro-header .header-mask{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background: rgba(0,0,0, 0.1);
+  }
+  
+</style>
+<header class="intro-header" >
+  <div class="header-mask"></div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-10 col-lg-offset-1 col-md-10 col-md-offset-1">
+        <div class="post-heading">
+          <div class="tags">
+            
+            <a class="tag" href="/tags/#rails" title="rails">rails</a>
+            
+            <a class="tag" href="/tags/#PostgreSQL" title="PostgreSQL">PostgreSQL</a>
+            
+            <a class="tag" href="/tags/#postgis" title="postgis">postgis</a>
+            
+          </div>
+          <h1>Rails use postgresql-adapter to compute postgis</h1>
+          
+          
+          <h2 class="subheading">老版本rails(4.1)项目的福音</h2>
+          
+          <span class="meta">
+            Posted by Archfish on 2019-04-14
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Post Content -->
+<article>
+  <div class="container">
+    <div class="row">
+      <!-- Post Container -->
+      <div class="col-md-11 post-container">
+        <!-- Multi-Lingual -->
+        
+
+        <p>rails中每种数据库都有自己的adapter，这些adapter负责处理数据库的各种数据类型，但是设计上无法自行增加新数据类型。使用postgis功能通常使用的是<a href="https://github.com/rgeo/activerecord-postgis-adapter" title="ActiveRecord connection adapter for PostGIS, based on postgresql and rgeo">active-record-postgis-adapter</a>，由于Reocar使用的功能仅仅是计算坐标点间的距离，增加这样一层适配器会导致应用结构变得复杂，同时也可能会引入<a href="https://github.com/rgeo/activerecord-postgis-adapter/issues/296" title="version 2.2.2 prepared_statements setting not take effect">新的问题</a>。在实现现有功能的情况下尝试移除active-record-postgis-adapter。</p>
+
+<h2 id="最小需求">最小需求</h2>
+
+<ul>
+  <li>计算两点之间的距离</li>
+  <li>找出以某点P为圆心X为半径所包含的所有点</li>
+  <li>找出离P点最近的点</li>
+</ul>
+
+<h2 id="思路">思路</h2>
+
+<ul>
+  <li>使用PG的条件索引对longitude和latitude进行索引</li>
+  <li>通过裸SQL进行数据操作</li>
+</ul>
+
+<h2 id="代码">代码</h2>
+
+<p>为了在项目中跟进数据结构变化，需要将schema dump改为structure dump</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># config/environments/[ENV].rb</span>
+
+<span class="no">Rails</span><span class="p">.</span><span class="nf">application</span><span class="p">.</span><span class="nf">configure</span> <span class="k">do</span>
+  <span class="n">config</span><span class="p">.</span><span class="nf">active_record</span><span class="p">.</span><span class="nf">schema_format</span> <span class="o">=</span> <span class="ss">:sql</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>rails4.1与新版本pg导出SQL会出现<a href="https://stackoverflow.com/questions/35999906/pg-dump-invalid-option-i-when-migrating" title="“pg_dump: invalid option — i” when migrating">参数异常</a>，重写该task</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># lib/tasks/database.rake</span>
+
+<span class="no">Rake</span><span class="o">::</span><span class="no">Task</span><span class="p">[</span><span class="s2">"db:structure:dump"</span><span class="p">].</span><span class="nf">clear</span>
+<span class="n">namespace</span> <span class="ss">:db</span> <span class="k">do</span>
+  <span class="n">namespace</span> <span class="ss">:structure</span> <span class="k">do</span>
+    <span class="n">desc</span> <span class="s2">"Overriding the task db:structure:dump task to remove -i option from pg_dump to make postgres 9.5 compatible"</span>
+    <span class="n">task</span> <span class="ss">dump: </span><span class="p">[</span><span class="ss">:environment</span><span class="p">,</span> <span class="ss">:load_config</span><span class="p">]</span> <span class="k">do</span>
+      <span class="n">config</span> <span class="o">=</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span><span class="p">.</span><span class="nf">configurations</span><span class="p">[</span><span class="no">Rails</span><span class="p">.</span><span class="nf">env</span><span class="p">]</span>
+      <span class="n">set_psql_env</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+      <span class="n">filename</span> <span class="o">=</span>  <span class="no">File</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="no">Rails</span><span class="p">.</span><span class="nf">root</span><span class="p">,</span> <span class="s2">"db"</span><span class="p">,</span> <span class="s2">"structure.sql"</span><span class="p">)</span>
+      <span class="n">database</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"database"</span><span class="p">]</span>
+      <span class="n">command</span> <span class="o">=</span> <span class="s2">"pg_dump -s -x -O -f </span><span class="si">#{</span><span class="no">Shellwords</span><span class="p">.</span><span class="nf">escape</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">#{</span><span class="no">Shellwords</span><span class="p">.</span><span class="nf">escape</span><span class="p">(</span><span class="n">database</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+      <span class="k">raise</span> <span class="s1">'Error dumping database'</span> <span class="k">unless</span> <span class="no">Kernel</span><span class="p">.</span><span class="nf">system</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+
+      <span class="no">File</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">)</span> <span class="p">{</span> <span class="o">|</span><span class="n">f</span><span class="o">|</span> <span class="n">f</span> <span class="o">&lt;&lt;</span> <span class="s2">"SET search_path TO </span><span class="si">#{</span><span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span><span class="p">.</span><span class="nf">connection</span><span class="p">.</span><span class="nf">schema_search_path</span><span class="si">}</span><span class="s2">;</span><span class="se">\n\n</span><span class="s2">"</span> <span class="p">}</span>
+      <span class="k">if</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span><span class="p">.</span><span class="nf">connection</span><span class="p">.</span><span class="nf">supports_migrations?</span>
+        <span class="no">File</span><span class="p">.</span><span class="nf">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">"a"</span><span class="p">)</span> <span class="k">do</span> <span class="o">|</span><span class="n">f</span><span class="o">|</span>
+          <span class="n">f</span><span class="p">.</span><span class="nf">puts</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span><span class="p">.</span><span class="nf">connection</span><span class="p">.</span><span class="nf">dump_schema_information</span>
+          <span class="n">f</span><span class="p">.</span><span class="nf">print</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="k">end</span>
+      <span class="k">end</span>
+      <span class="no">Rake</span><span class="o">::</span><span class="no">Task</span><span class="p">[</span><span class="s2">"db:structure:dump"</span><span class="p">].</span><span class="nf">reenable</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nf">set_psql_env</span><span class="p">(</span><span class="n">configuration</span><span class="p">)</span>
+    <span class="no">ENV</span><span class="p">[</span><span class="s1">'PGHOST'</span><span class="p">]</span>     <span class="o">=</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'host'</span><span class="p">]</span>          <span class="k">if</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'host'</span><span class="p">]</span>
+    <span class="no">ENV</span><span class="p">[</span><span class="s1">'PGPORT'</span><span class="p">]</span>     <span class="o">=</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'port'</span><span class="p">].</span><span class="nf">to_s</span>     <span class="k">if</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'port'</span><span class="p">]</span>
+    <span class="no">ENV</span><span class="p">[</span><span class="s1">'PGPASSWORD'</span><span class="p">]</span> <span class="o">=</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'password'</span><span class="p">].</span><span class="nf">to_s</span> <span class="k">if</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'password'</span><span class="p">]</span>
+    <span class="no">ENV</span><span class="p">[</span><span class="s1">'PGUSER'</span><span class="p">]</span>     <span class="o">=</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'username'</span><span class="p">].</span><span class="nf">to_s</span> <span class="k">if</span> <span class="n">configuration</span><span class="p">[</span><span class="s1">'username'</span><span class="p">]</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>创建包含经纬度的表</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># db/migrate/201902260xxxxx_create_stores.rb</span>
+
+<span class="k">class</span> <span class="nc">CreateStores</span> <span class="o">&lt;</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Migration</span>
+  <span class="k">def</span> <span class="nf">change</span>
+    <span class="n">create_table</span> <span class="ss">:stores</span> <span class="k">do</span> <span class="o">|</span><span class="n">t</span><span class="o">|</span>
+      <span class="n">t</span><span class="p">.</span><span class="nf">decimal</span> <span class="ss">:latitude</span><span class="p">,</span> <span class="ss">precision: </span><span class="mi">9</span><span class="p">,</span> <span class="ss">scale: </span><span class="mi">6</span>
+      <span class="n">t</span><span class="p">.</span><span class="nf">decimal</span> <span class="ss">:longitude</span><span class="p">,</span> <span class="ss">precision: </span><span class="mi">9</span><span class="p">,</span> <span class="ss">scale: </span><span class="mi">6</span>
+      <span class="n">t</span><span class="p">.</span><span class="nf">string</span> <span class="ss">:name</span>
+
+      <span class="n">t</span><span class="p">.</span><span class="nf">timestamps</span>
+    <span class="k">end</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>启用数据库插件需要特权，应用账号可能没有相关权限，请使用特权账号操作</p>
+
+<pre><code class="language-psql">\c shop_db
+create extension postgis;
+</code></pre>
+
+<p>封装一些方法</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># app/models/store.rb</span>
+
+<span class="k">class</span> <span class="nc">Store</span> <span class="o">&lt;</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span>
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">mk_location</span>
+    <span class="sx">%{
+      ST_GeographyFromText(
+        'SRID=4326;POINT(' || #{table_name.inspect}.longitude || ' ' || #{table_name.inspect}.latitude || ')'
+      )
+    }</span>
+  <span class="k">end</span>
+
+  <span class="k">def</span> <span class="nc">self</span><span class="o">.</span><span class="nf">mk_point</span><span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">)</span>
+    <span class="sx">%{ST_GeographyFromText('SRID=4326;POINT(%f %f)')}</span> <span class="sx">% [latitude, </span><span class="n">longitude</span><span class="p">]</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>在经纬度上创建条件索引</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># db/migrate/20190227xxxxx_add_index_for_location.rb</span>
+
+<span class="k">class</span> <span class="nc">AddIndexForLocation</span> <span class="o">&lt;</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Migration</span>
+  <span class="k">def</span> <span class="nf">change</span>
+    <span class="n">execute</span> <span class="sx">%{
+      create index index_on_stores_location ON stores using gist (
+        #{Store.mk_location}
+      )
+    }</span>
+  <span class="k">end</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<p>提供相关scope</p>
+
+<div class="language-ruby highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1"># app/models/store.rb</span>
+
+<span class="k">class</span> <span class="nc">Store</span> <span class="o">&lt;</span> <span class="no">ActiveRecord</span><span class="o">::</span><span class="no">Base</span>
+  <span class="n">scope</span> <span class="ss">:nearby</span><span class="p">,</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">,</span> <span class="n">distance_in_meters</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">where</span><span class="p">(</span><span class="sx">%{
+      ST_DWithin(
+        #{mk_location},
+        #{mk_point(latitude, longitude)},
+        %d
+      )
+    }</span> <span class="o">%</span> <span class="p">[</span><span class="n">distance_in_meters</span><span class="p">])</span>
+  <span class="p">}</span>
+
+  <span class="n">scope</span> <span class="ss">:nearby_ordered</span><span class="p">,</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">,</span> <span class="n">distance_in_meters</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">)</span> <span class="p">{</span>
+    <span class="nb">select</span><span class="p">(</span><span class="sx">%{
+        #{table_name.inspect}.*, ST_Distance(
+          #{mk_location}, #{mk_point(latitude, longitude)}
+        ) as distance
+      }</span>
+    <span class="p">).</span><span class="nf">nearby</span><span class="p">(</span><span class="n">latitude</span><span class="p">,</span> <span class="n">longitude</span><span class="p">,</span> <span class="n">distance_in_meters</span><span class="p">).</span><span class="nf">reorder</span><span class="p">(</span><span class="s2">"distance asc"</span><span class="p">)</span>
+  <span class="p">}</span>
+
+  <span class="c1"># other code</span>
+<span class="k">end</span>
+</code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<ul>
+  <li>我个人来说不喜欢滥用gem，如果因为一个小功能引入了一个超复杂的gem，在后期维护中会带来各种各样的麻烦；</li>
+  <li>我大致测试了一下在POINT上创建索引和直接使用条件索引，性能差异不算太大，对于现有场景来说性能差异在可接受范围内；</li>
+</ul>
+
+<h2 id="参考">参考</h2>
+
+<p><a href="http://ngauthier.com/2013/08/postgis-and-rails-a-simple-approach.html" title="PostGIS and Rails: A Simple Approach">PostGIS and Rails: A Simple Approach</a></p>
+
+<hr />
+
+<p>欢迎跟我交流 <a href="https://github.com/archfish/archfish" title="archfish blog">Archfish</a></p>
+
+
+
+        <hr style="visibility: hidden;">
+
+        <ul class="pager">
+          
+          <li class="previous">
+            <a href="/2019/04/13/macos_brew_manage_multiple_ruby_versions/" data-toggle="tooltip" data-placement="top" title="macOS使用brew安装用户级ruby">
+            Previous<br>
+            <span>macOS使用brew安装用户级ruby</span>
+            </a>
+          </li>
+          
+          
+        </ul>
+
+        
+
+        
+      </div>
+
+      <!-- Side Catalog Container -->
+      
+    </div>
+  </div>
+</article>
+
+
+
+
+
+
+
+
+
+  <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Copyright &copy; 韦初一的小窝 2019
+          <iframe
+            style="margin-left: 2px; margin-bottom:-5px;"
+            frameborder="0" scrolling="0" width="100px" height="20px"
+            src="https://ghbtns.com/github-btn.html?user=archfish&repo=archfish&type=star&count=true" >
+          </iframe>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js "></script>
+
+<!-- Bootstrap Core JavaScript -->
+<!-- Currently, only navbar scroll-down effect at desktop still depends on this -->
+<script src="/js/bootstrap.min.js "></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/archfish.min.js "></script>
+
+<!-- Service Worker -->
+
+<script src="/js/snackbar.js "></script>
+<script src="/js/sw-registration.js "></script>
+
+
+<!-- async load function -->
+<script>
+  function async(u, c) {
+    var d = document, t = 'script',
+        o = d.createElement(t),
+        s = d.getElementsByTagName(t)[0];
+    o.src = u;
+    if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+    s.parentNode.insertBefore(o, s);
+  }
+</script>
+
+<!--
+     Because of the native support for backtick-style fenced code blocks
+     right within the Markdown is landed in Github Pages,
+     There is no need for Highlight.js.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/
+     - https://github.com/jneen/rouge/wiki/list-of-supported-languages-and-lexers
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+  // only load tagcloud.js in tag.html
+  if($('#tag_cloud').length !== 0){
+    async('/js/jquery.tagcloud.js',function(){
+      $.fn.tagcloud.defaults = {
+        //size: {start: 1, end: 1, unit: 'em'},
+        color: {start: '#bbbbee', end: '#0085a1'},
+      };
+      $('#tag_cloud a').tagcloud();
+    })
+  }
+</script>
+
+<!--fastClick.js -->
+<script>
+  async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+    var $nav = document.querySelector("nav");
+    if($nav) FastClick.attach($nav);
+  })
+</script>
+
+<!-- Google Analytics -->
+
+
+
+<!-- Baidu Tongji -->
+
+
+
+<!-- Side Catalog -->
+
+
+<!-- Multi-Lingual -->
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
